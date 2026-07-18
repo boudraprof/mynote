@@ -3,31 +3,37 @@ import { Platform } from 'react-native'
 import { MD3DarkTheme, MD3LightTheme } from 'react-native-paper'
 import type { MD3Theme } from 'react-native-paper'
 
+/**
+ * Color palette matching the web admin panel's Google Keep-like aesthetic.
+ *
+ * Light mode: clean white backgrounds, subtle gray borders.
+ * Dark mode:  #202124 (Google Keep dark) background.
+ */
 export const Colors = {
   light: {
-    text: '#1A1A2E',
-    background: '#F8F9FC',
-    backgroundElement: '#ECEEF4',
-    backgroundSelected: '#DDE0EC',
-    textSecondary: '#6B7280',
-    accent: '#6C63FF',
-    accentLight: '#EEF0FF',
+    text: '#202124',
+    background: '#FFFFFF',
+    backgroundElement: '#F1F3F4',
+    backgroundSelected: '#E8EAED',
+    textSecondary: '#5F6368',
+    accent: '#1A73E8',
+    accentLight: '#E8F0FE',
     surface: '#FFFFFF',
-    border: '#E5E7EF',
+    border: '#DADCE0',
     success: '#10B981',
     danger: '#EF4444',
     warning: '#F59E0B',
   },
   dark: {
-    text: '#F1F3F9',
-    background: '#0D0F1A',
-    backgroundElement: '#1C1F2E',
-    backgroundSelected: '#252840',
-    textSecondary: '#8B90A7',
-    accent: '#7C74FF',
-    accentLight: '#1E1B3A',
-    surface: '#161927',
-    border: '#2A2D42',
+    text: '#E8EAED',
+    background: '#202124',
+    backgroundElement: '#303134',
+    backgroundSelected: '#3C4043',
+    textSecondary: '#9AA0A6',
+    accent: '#8AB4F8',
+    accentLight: '#2D3748',
+    surface: '#303134',
+    border: '#3C4043',
     success: '#10B981',
     danger: '#EF4444',
     warning: '#F59E0B',
