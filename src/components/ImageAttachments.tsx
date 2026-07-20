@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from '@/hooks/use-theme'
 import { Spacing } from '@/constants/theme'
 import { config } from '@/lib/env'
@@ -23,9 +24,17 @@ export function ImageAttachments({ image, onChange }: ImageAttachmentsProps) {
 
   const handlePick = async () => {
     try {
-      const ImagePicker = require('expo-image-picker')
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission Required',
+          'Please grant media library access to choose images.'
+        )
+        return
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         quality: 0.8,
       })

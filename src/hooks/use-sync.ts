@@ -19,7 +19,42 @@ export async function pullServerNotes() {
       await mergeServerNotes(serverNotes)
     }
   } catch (e) {
-    console.warn('Failed to pull server notes:', e)
+    const message = e instanceof Error ? e.message : String(e)
+    console.warn('Failed to pull server notes:', message)
+  }
+}
+
+let isSyncing = false
+
+/** Push locally-queued operations to the server, then pull latest notes. */
+export async function syncPendingNotes() {
+  if (isSyncing) return
+  isSyncing = true
+  try {
+    const operations = await getPendingSyncOperations()
+
+    for (const op of operations) {
+      try {
+        const data = op.data ? JSON.parse(op.data) : {}
+
+        if (op.operation === 'create') {
+          await createNote(data)
+        } else if (op.operation === 'update') {
+          await updateNote(data)
+        } else if (op.operation === 'delete') {
+          await deleteNote(op.noteId)
+        }
+
+        await removeSyncOperation(op.id)
+        await markNoteSynced(op.noteId)
+      } catch (e) {
+        console.warn(`Sync failed for ${op.operation} ${op.noteId}:`, e)
+      }
+    }
+
+    await pullServerNotes()
+  } finally {
+    isSyncing = false
   }
 }
 
@@ -35,28 +70,7 @@ export function useSyncPendingNotes() {
 
     ;(async () => {
       try {
-        const operations = await getPendingSyncOperations()
-
-        for (const op of operations) {
-          try {
-            const data = op.data ? JSON.parse(op.data) : {}
-
-            if (op.operation === 'create') {
-              await createNote(data)
-            } else if (op.operation === 'update') {
-              await updateNote(data)
-            } else if (op.operation === 'delete') {
-              await deleteNote(op.noteId)
-            }
-
-            await removeSyncOperation(op.id)
-            await markNoteSynced(op.noteId)
-          } catch (e) {
-            console.warn(`Sync failed for ${op.operation} ${op.noteId}:`, e)
-          }
-        }
-
-        await pullServerNotes()
+        await syncPendingNotes()
         queryClient.invalidateQueries({ queryKey: [NOTES_KEY] })
       } finally {
         syncing.current = false
