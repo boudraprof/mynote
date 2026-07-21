@@ -23,8 +23,10 @@ import { LabelPicker } from '@/components/LabelPicker'
 import { ChecklistEditor } from '@/components/ChecklistEditor'
 import { PalettePicker } from '@/components/PalettePicker'
 import { ImageAttachments } from '@/components/ImageAttachments'
+import { DrawingEditor } from '@/components/DrawingEditor'
 import { Ionicons } from '@expo/vector-icons'
 import { config } from '@/lib/env'
+import { authClient } from '@/lib/auth'
 
 const paletteColorValues: Record<string, string> = {
   coral: '#f4a460',
@@ -66,6 +68,7 @@ export default function NoteDetailScreen() {
   const [image, setImage] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [drawingVisible, setDrawingVisible] = useState(false)
 
   useEffect(() => {
     if (note) {
@@ -127,6 +130,39 @@ export default function NoteDetailScreen() {
     updateNote,
     saving,
   ])
+
+  const saveDrawing = useCallback(
+    async (uri: string) => {
+      try {
+        const formData = new FormData()
+        formData.append('image', {
+          uri,
+          name: `drawing-${Date.now()}.png`,
+          type: 'image/png',
+        } as any)
+        const cookie = authClient.getCookie()
+        if (!cookie) {
+          Alert.alert('Error', 'Authentication required. Please sign in again.')
+          return
+        }
+        const res = await fetch(`${config.apiBaseUrl}/upload-image`, {
+          method: 'POST',
+          headers: { Cookie: cookie },
+          body: formData,
+        })
+        const data = await res.json()
+        if (res.ok && data.url) {
+          setImage(data.url)
+          markDirty()
+        } else {
+          Alert.alert('Error', data.errors || data.message || 'Upload failed')
+        }
+      } catch {
+        Alert.alert('Error', 'Failed to save drawing')
+      }
+    },
+    [markDirty],
+  )
 
   const handleDelete = useCallback(() => {
     Alert.alert('Delete Note', 'Move this note to trash?', [
@@ -380,6 +416,21 @@ export default function NoteDetailScreen() {
                 <Ionicons name="checkbox-outline" size={14} color={isChecklist ? '#fff' : textColor} /> Checklist
               </Text>
             </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.toolBtn,
+                {
+                  backgroundColor: 'rgba(0,0,0,0.06)',
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+              onPress={() => setDrawingVisible(true)}
+            >
+              <Text style={[styles.toolBtnText, { color: textColor }]}>
+                <Ionicons name="brush-outline" size={14} color={textColor} /> Drawing
+              </Text>
+            </Pressable>
           </View>
         )}
 
@@ -483,6 +534,12 @@ export default function NoteDetailScreen() {
           </Pressable>
         </View>
       )}
+
+      <DrawingEditor
+        visible={drawingVisible}
+        onClose={() => setDrawingVisible(false)}
+        onSave={saveDrawing}
+      />
     </KeyboardAvoidingView>
   )
 }

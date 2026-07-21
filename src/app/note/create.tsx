@@ -22,6 +22,7 @@ import { LabelPicker } from '@/components/LabelPicker'
 import { ChecklistEditor } from '@/components/ChecklistEditor'
 import { PalettePicker } from '@/components/PalettePicker'
 import { ImageAttachments } from '@/components/ImageAttachments'
+import { DrawingEditor } from '@/components/DrawingEditor'
 import { ActionSheet } from '@/components/ActionSheet'
 import { Ionicons } from '@expo/vector-icons'
 import { config } from '@/lib/env'
@@ -68,6 +69,7 @@ export default function CreateNoteScreen() {
   const [palette, setPalette] = useState<string | null>(null)
   const [image, setImage] = useState<string | null>(null)
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null)
+  const [drawingVisible, setDrawingVisible] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
 
   useEffect(() => {
@@ -180,6 +182,26 @@ export default function CreateNoteScreen() {
     setIsChecklist((prev) => !prev)
   }, [])
 
+  const saveDrawing = useCallback(
+    async (uri: string) => {
+      try {
+        const uploadResult = await uploadImage({
+          uri,
+          name: `drawing-${Date.now()}.png`,
+          type: 'image/png',
+        })
+        if (uploadResult.url) {
+          setImage(uploadResult.url)
+        } else {
+          Alert.alert('Error', uploadResult.errors || 'Upload failed')
+        }
+      } catch {
+        Alert.alert('Error', 'Failed to save drawing')
+      }
+    },
+    [],
+  )
+
   const isImageBg = palette && backgroundImages[palette]
   const paletteBg = palette && !isImageBg ? paletteColorValues[palette] : null
   const containerBg = paletteBg || theme.background
@@ -194,6 +216,7 @@ export default function CreateNoteScreen() {
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: containerBg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // keyboardVerticalOffset={insets.top}
     >
       <Stack.Screen
         options={{
@@ -227,7 +250,7 @@ export default function CreateNoteScreen() {
             autoFocus
           />
 
-          {/* <ImageAttachments image={image} onChange={setImage} /> */}
+          <ImageAttachments image={image} onChange={setImage} />
 
           {!isChecklist && (
             <TextInput
@@ -333,12 +356,17 @@ export default function CreateNoteScreen() {
             <Text style={[styles.sheetRowLabel, { color: textColor }]}>Add image</Text>
           </Pressable>
 
-          <Pressable style={styles.sheetRow} onPress={() => setActiveSheet(null)}>
+          <Pressable
+            style={styles.sheetRow}
+            onPress={() => {
+              setActiveSheet(null)
+              setDrawingVisible(true)
+            }}
+          >
             <View style={[styles.sheetIcon, { backgroundColor: theme.backgroundElement }]}>
               <Ionicons name="brush-outline" size={22} color={textColor} />
             </View>
             <Text style={[styles.sheetRowLabel, { color: textColor }]}>Drawing</Text>
-            <Text style={[styles.sheetBadge, { color: secondaryColor }]}>Soon</Text>
           </Pressable>
 
           <Pressable
@@ -390,6 +418,13 @@ export default function CreateNoteScreen() {
           </Text>
         </View>
       </ActionSheet>
+
+      {/* ── Drawing editor ─────────────────────────────── */}
+      <DrawingEditor
+        visible={drawingVisible}
+        onClose={() => setDrawingVisible(false)}
+        onSave={saveDrawing}
+      />
     </KeyboardAvoidingView>
   )
 }

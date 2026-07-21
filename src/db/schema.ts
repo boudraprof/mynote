@@ -26,3 +26,15 @@ export const syncQueue = sqliteTable('sync_queue', {
   data: text('data'),
   createdAt: text('created_at'),
 })
+
+export const noteHistory = sqliteTable('note_history', {
+  id: text('id').primaryKey(),
+  noteId: text('note_id').notNull(),
+  title: text('title'),
+  content: text('content'),
+  checklistItems: text('checklist_items'),
+  labels: text('labels'),
+  snapshot: text('snapshot').notNull(),
+  timestamp: text('timestamp').notNull(),
+  changeType: text('change_type').notNull(),
+})
