@@ -6,6 +6,6 @@ export function useSearch(params: SearchParams) {
   return useQuery({
     queryKey: ['search', params],
     queryFn: () => searchNotes(params),
-    enabled: params.q.length > 0,
+    enabled: params?.q?.length > 0,
   })
 }

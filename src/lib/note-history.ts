@@ -1,11 +1,13 @@
 /**
- * Note versioning and history tracking for React Native
- * Stores note snapshots in SQLite via Drizzle
+ * Note versioning and history tracking for React Native.
+ * Server-backed via /v1/api/notes/history so history follows the note
+ * across devices, with a local SQLite fallback for offline use.
  */
 
 import { eq } from 'drizzle-orm'
 import { getDb } from '@/db'
 import { noteHistory } from '@/db/schema'
+import api from '@/lib/api'
 import logger from './logger'
 
 export interface NoteVersion {
@@ -15,115 +17,196 @@ export interface NoteVersion {
   content: string | null
   checklistItems: string | null
   labels: string[]
-  snapshot: string // JSON string of full note state
+  snapshot: Record<string, unknown>
   timestamp: string
   changeType: 'create' | 'update' | 'delete'
 }
 
-/**
- * Save a note version/snapshot
- */
-export async function saveNoteVersion(
-  noteId: string,
-  data: {
-    title: string | null
-    content: string | null
-    checklistItems: string | null
-    labels?: string[]
-    [key: string]: unknown
-  },
-  changeType: NoteVersion['changeType'] = 'update'
-): Promise<void> {
+function parseLabels(value: string | null): string[] {
   try {
-    const db = await getDb()
-    const id = `version-${noteId}-${Date.now()}`
-    const timestamp = new Date().toISOString()
-
-    await db.insert(noteHistory).values({
-      id,
-      noteId,
-      title: data.title,
-      content: data.content,
-      checklistItems: data.checklistItems,
-      labels: data.labels ? JSON.stringify(data.labels) : null,
-      snapshot: JSON.stringify(data),
-      timestamp,
-      changeType,
-    })
-
-    // Limit versions per note (keep last 50)
-    await limitNoteVersions(noteId, 50)
-  } catch (error) {
-    // Don't let history tracking break the app
-    logger.warn('Failed to save note version', 'History')
+    return value ? JSON.parse(value) : []
+  } catch {
+    return []
   }
 }
 
-/**
- * Get all versions for a note
- */
-export async function getNoteVersions(noteId: string): Promise<NoteVersion[]> {
+function parseSnapshot(value: string): Record<string, unknown> {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return {}
+  }
+}
+
+function rowToVersion(row: typeof noteHistory.$inferSelect): NoteVersion {
+  return {
+    id: row.id,
+    noteId: row.noteId,
+    title: row.title,
+    content: row.content,
+    checklistItems: row.checklistItems,
+    labels: parseLabels(row.labels),
+    snapshot: parseSnapshot(row.snapshot),
+    timestamp: row.timestamp,
+    changeType: row.changeType as NoteVersion['changeType'],
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Local SQLite fallback (offline)
+// ---------------------------------------------------------------------------
+
+async function saveLocalVersion(
+  noteId: string,
+  data: Record<string, unknown>,
+  changeType: NoteVersion['changeType'],
+): Promise<void> {
   const db = await getDb()
-  
+  const id = `version-${noteId}-${Date.now()}`
+  const timestamp = new Date().toISOString()
+
+  await db.insert(noteHistory).values({
+    id,
+    noteId,
+    title: typeof data.title === 'string' ? data.title : null,
+    content: typeof data.content === 'string' ? data.content : null,
+    checklistItems:
+      typeof data.checklistItems === 'string' ? data.checklistItems : null,
+    labels: Array.isArray(data.labels) ? JSON.stringify(data.labels) : null,
+    snapshot: JSON.stringify(data),
+    timestamp,
+    changeType,
+  })
+
+  // Limit versions per note (keep last 50)
+  await limitLocalVersions(noteId, 50)
+}
+
+async function getLocalVersions(noteId: string): Promise<NoteVersion[]> {
+  const db = await getDb()
   const rows = await db
     .select()
     .from(noteHistory)
     .where(eq(noteHistory.noteId, noteId))
     .orderBy(noteHistory.timestamp)
 
-  // Sort by timestamp, newest first
   return rows
-    .map((row) => ({
-      ...row,
-      labels: row.labels ? JSON.parse(row.labels) : [],
-      changeType: row.changeType as NoteVersion['changeType'],
-    }))
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .map(rowToVersion)
+    .sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    )
 }
 
-/**
- * Get a specific version by ID
- */
-export async function getNoteVersion(versionId: string): Promise<NoteVersion | null> {
+async function getLocalVersion(versionId: string): Promise<NoteVersion | null> {
   const db = await getDb()
   const [row] = await db
     .select()
     .from(noteHistory)
     .where(eq(noteHistory.id, versionId))
 
-  if (!row) return null
-
-  return {
-    ...row,
-    labels: row.labels ? JSON.parse(row.labels) : [],
-    changeType: row.changeType as NoteVersion['changeType'],
-  }
+  return row ? rowToVersion(row) : null
 }
 
-/**
- * Delete all versions for a note
- */
-export async function deleteNoteVersions(noteId: string): Promise<void> {
+async function clearLocalVersions(noteId: string): Promise<void> {
   const db = await getDb()
   await db.delete(noteHistory).where(eq(noteHistory.noteId, noteId))
 }
 
+async function limitLocalVersions(
+  noteId: string,
+  maxVersions: number,
+): Promise<void> {
+  const versions = await getLocalVersions(noteId)
+  if (versions.length <= maxVersions) return
+
+  const db = await getDb()
+  const toDelete = versions.slice(maxVersions)
+  for (const version of toDelete) {
+    await db.delete(noteHistory).where(eq(noteHistory.id, version.id))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Public API (server-first, local fallback)
+// ---------------------------------------------------------------------------
+
 /**
- * Limit versions per note (keep most recent N)
+ * Save a note version/snapshot. Never throws — history tracking must not
+ * break the note-saving flow.
+ */
+export async function saveNoteVersion(
+  noteId: string,
+  data: Record<string, unknown>,
+  changeType: NoteVersion['changeType'] = 'update',
+): Promise<void> {
+  try {
+    await api.post('/notes/history', { noteId, data, changeType })
+  } catch {
+    logger.warn('Saving version locally (offline)', 'History')
+    try {
+      await saveLocalVersion(noteId, data, changeType)
+    } catch {
+      logger.warn('Failed to save note version', 'History')
+    }
+  }
+}
+
+/**
+ * Get all versions for a note (newest first).
+ */
+export async function getNoteVersions(noteId: string): Promise<NoteVersion[]> {
+  try {
+    const { data } = await api.get('/notes/history', { params: { noteId } })
+    return (data.data ?? []) as NoteVersion[]
+  } catch {
+    return getLocalVersions(noteId)
+  }
+}
+
+/**
+ * Get a specific version by ID.
+ */
+export async function getNoteVersion(
+  versionId: string,
+): Promise<NoteVersion | null> {
+  try {
+    const { data } = await api.get('/notes/history', {
+      params: { id: versionId },
+    })
+    return (data.data ?? null) as NoteVersion | null
+  } catch {
+    return getLocalVersion(versionId)
+  }
+}
+
+/**
+ * Delete all versions for a note.
+ */
+export async function deleteNoteVersions(noteId: string): Promise<void> {
+  try {
+    await api.delete('/notes/history', { params: { noteId } })
+  } catch {
+    try {
+      await clearLocalVersions(noteId)
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
+ * Limit versions per note (keep most recent N).
+ * The server caps at 50; the local fallback trims to keep parity.
  */
 export async function limitNoteVersions(
   noteId: string,
-  maxVersions: number = 50
+  maxVersions: number = 50,
 ): Promise<void> {
-  const versions = await getNoteVersions(noteId)
-
-  if (versions.length > maxVersions) {
-    const toDelete = versions.slice(maxVersions)
-    const db = await getDb()
-
-    for (const version of toDelete) {
-      await db.delete(noteHistory).where(eq(noteHistory.id, version.id))
-    }
+  try {
+    await limitLocalVersions(noteId, maxVersions)
+  } catch {
+    /* ignore */
   }
 }
 
@@ -132,7 +215,7 @@ export async function limitNoteVersions(
  */
 export function compareVersions(
   older: NoteVersion,
-  newer: NoteVersion
+  newer: NoteVersion,
 ): {
   titleChanged: boolean
   contentChanged: boolean
@@ -143,7 +226,8 @@ export function compareVersions(
 
   const titleChanged = older.title !== newer.title
   const contentChanged = older.content !== newer.content
-  const labelsChanged = JSON.stringify(older.labels) !== JSON.stringify(newer.labels)
+  const labelsChanged =
+    JSON.stringify(older.labels) !== JSON.stringify(newer.labels)
 
   if (titleChanged) changes.push('Title changed')
   if (contentChanged) changes.push('Content changed')
@@ -156,14 +240,9 @@ export function compareVersions(
  * Restore a note to a previous version
  */
 export async function restoreNoteVersion(
-  versionId: string
+  versionId: string,
 ): Promise<Record<string, unknown> | null> {
   const version = await getNoteVersion(versionId)
   if (!version) return null
-
-  try {
-    return JSON.parse(version.snapshot)
-  } catch {
-    return null
-  }
+  return version.snapshot
 }

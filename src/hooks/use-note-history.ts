@@ -48,6 +48,8 @@ export function useNoteHistory(noteId: string | null): UseNoteHistoryResult {
   }, [noteId])
 
   useEffect(() => {
+    // Load version history on mount / when the note changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load-on-mount
     void fetchVersions()
   }, [fetchVersions])
 

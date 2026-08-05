@@ -5,7 +5,7 @@ export interface ApiNote {
   title: string | null
   content: string | null
   image: string | null
-  labels: Array<string>
+  labels: string[]
   pinned: boolean
   position: number
   checklist: boolean
@@ -14,6 +14,7 @@ export interface ApiNote {
   createdAt: string
   updatedAt: string
   StatusName?: string
+  reminderAt?: string | null
 }
 
 export interface ApiResponse<T> {

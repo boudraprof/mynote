@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -24,9 +25,14 @@ import { ChecklistEditor } from '@/components/ChecklistEditor'
 import { PalettePicker } from '@/components/PalettePicker'
 import { ImageAttachments } from '@/components/ImageAttachments'
 import { DrawingEditor } from '@/components/DrawingEditor'
+import { ReminderSheet } from '@/components/ReminderSheet'
+import { ShareSheet } from '@/components/ShareSheet'
 import { Ionicons } from '@expo/vector-icons'
 import { config } from '@/lib/env'
-import { authClient } from '@/lib/auth'
+import { htmlToPlainText } from '@/lib/html'
+import { uploadImage } from '@/api/upload'
+import { useAuth } from '@/providers/auth-provider'
+import { useNoteHistory } from '@/hooks/use-note-history'
 
 const paletteColorValues: Record<string, string> = {
   coral: '#f4a460',
@@ -58,33 +64,26 @@ export default function NoteDetailScreen() {
   const { data: note, isLoading, error } = useNote(id)
   const updateNote = useUpdateNote()
   const deleteNote = useDeleteNote()
+  const { user } = useAuth()
+  const history = useNoteHistory(id ?? null)
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [labels, setLabels] = useState<Array<string>>([])
+  const [labels, setLabels] = useState<string[]>([])
   const [isChecklist, setIsChecklist] = useState(false)
-  const [checklistItems, setChecklistItems] = useState<Array<ChecklistItem>>([])
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
   const [palette, setPalette] = useState<string | null>(null)
   const [image, setImage] = useState<string | null>(null)
+  const [reminderAt, setReminderAt] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [drawingVisible, setDrawingVisible] = useState(false)
+  const [reminderVisible, setReminderVisible] = useState(false)
+  const [shareVisible, setShareVisible] = useState(false)
+  const [historyVisible, setHistoryVisible] = useState(false)
+  const originalContentRef = useRef<string | null>(null)
 
-  useEffect(() => {
-    if (note) {
-      setTitle(note.title ?? '')
-      setContent(note.content ?? '')
-      setLabels(note.labels ?? [])
-      setIsChecklist(note.checklist ?? false)
-      setChecklistItems(
-        note.checklistItems ? parseItems(note.checklistItems) : [],
-      )
-      setPalette(note.palette)
-      setImage(note.image)
-    }
-  }, [note])
-
-  const parseItems = (raw: string): Array<ChecklistItem> => {
+  const parseItems = (raw: string): ChecklistItem[] => {
     try {
       return JSON.parse(raw)
     } catch {
@@ -92,16 +91,44 @@ export default function NoteDetailScreen() {
     }
   }
 
+  useEffect(() => {
+    if (note) {
+      // Seed the editor from the fetched note once it arrives.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- seed editor on load
+      setTitle(note.title ?? '')
+      // The web app stores rich-text HTML; the mobile editor is plain text,
+      // so normalize for editing but remember the original so an untouched
+      // save doesn't strip web formatting.
+      originalContentRef.current = note.content
+      setContent(htmlToPlainText(note.content))
+      setLabels(note.labels ?? [])
+      setIsChecklist(note.checklist ?? false)
+      setChecklistItems(
+        note.checklistItems ? parseItems(note.checklistItems) : [],
+      )
+      setPalette(note.palette)
+      setImage(note.image)
+      setReminderAt(note.reminderAt ?? null)
+    }
+  }, [note])
+
   const markDirty = useCallback(() => setDirty(true), [])
 
   const handleSave = useCallback(async () => {
     if (!id || saving) return
     setSaving(true)
     try {
-      await updateNote.mutateAsync({
+      // If the user never touched the text, keep the original content
+      // (possibly rich-text HTML from the web app) instead of replacing it
+      // with the stripped plain-text version.
+      const contentToSave =
+        content === htmlToPlainText(originalContentRef.current)
+          ? originalContentRef.current
+          : content
+      const payload = {
         id,
         title,
-        content: isChecklist ? null : content,
+        content: isChecklist ? null : contentToSave,
         labels,
         checklist: isChecklist,
         checklistItems:
@@ -110,7 +137,11 @@ export default function NoteDetailScreen() {
             : null,
         palette,
         image,
-      })
+        reminderAt,
+      }
+      await updateNote.mutateAsync(payload)
+      // Snapshot this version locally for history
+      await history.saveVersion(id, payload, 'update')
       setDirty(false)
       router.back()
     } catch {
@@ -127,41 +158,48 @@ export default function NoteDetailScreen() {
     checklistItems,
     palette,
     image,
+    reminderAt,
     updateNote,
+    history,
     saving,
   ])
 
   const saveDrawing = useCallback(
     async (uri: string) => {
       try {
-        const formData = new FormData()
-        formData.append('image', {
-          uri,
-          name: `drawing-${Date.now()}.png`,
-          type: 'image/png',
-        } as any)
-        const cookie = authClient.getCookie()
-        if (!cookie) {
-          Alert.alert('Error', 'Authentication required. Please sign in again.')
-          return
-        }
-        const res = await fetch(`${config.apiBaseUrl}/upload-image`, {
-          method: 'POST',
-          headers: { Cookie: cookie },
-          body: formData,
-        })
-        const data = await res.json()
-        if (res.ok && data.url) {
-          setImage(data.url)
+        const uploadResult = await uploadImage(
+          {
+            uri,
+            name: `drawing-${Date.now()}.png`,
+            type: 'image/png',
+          },
+          'drawings',
+        )
+        if (uploadResult.url) {
+          setImage(uploadResult.url)
           markDirty()
         } else {
-          Alert.alert('Error', data.errors || data.message || 'Upload failed')
+          Alert.alert('Error', uploadResult.errors || 'Upload failed')
         }
       } catch {
         Alert.alert('Error', 'Failed to save drawing')
       }
     },
     [markDirty],
+  )
+
+  const handleSaveReminder = useCallback(
+    async (value: string | null) => {
+      if (!id) return
+      try {
+        await updateNote.mutateAsync({ id, reminderAt: value })
+        setReminderAt(value)
+        setDirty(false)
+      } catch {
+        Alert.alert('Error', 'Failed to update reminder')
+      }
+    },
+    [id, updateNote],
   )
 
   const handleDelete = useCallback(() => {
@@ -195,16 +233,6 @@ export default function NoteDetailScreen() {
     }
   }, [id, note, updateNote])
 
-  const handlePin = useCallback(async () => {
-    if (!id) return
-    try {
-      await updateNote.mutateAsync({ id, pinned: !note?.pinned })
-      setDirty(false)
-    } catch {
-      Alert.alert('Error', 'Failed to update note')
-    }
-  }, [id, note, updateNote])
-
   const handleRestore = useCallback(async () => {
     if (!id) return
     try {
@@ -233,6 +261,33 @@ export default function NoteDetailScreen() {
     ])
   }, [id, deleteNote])
 
+  const handleRestoreVersion = useCallback(
+    async (versionId: string) => {
+      const snapshot = await history.restoreVersion(versionId)
+      if (!snapshot) {
+        Alert.alert('Error', 'Failed to restore version')
+        return
+      }
+      if ('title' in snapshot) setTitle((snapshot.title as string | null) ?? '')
+      if ('content' in snapshot) {
+        originalContentRef.current = snapshot.content as string | null
+        setContent(htmlToPlainText(snapshot.content as string | null))
+      }
+      if ('labels' in snapshot) setLabels((snapshot.labels as string[]) ?? [])
+      if ('palette' in snapshot)
+        setPalette((snapshot.palette as string | null) ?? null)
+      if ('image' in snapshot)
+        setImage((snapshot.image as string | null) ?? null)
+      if ('checklistItems' in snapshot && snapshot.checklistItems != null) {
+        setIsChecklist(true)
+        setChecklistItems(parseItems(snapshot.checklistItems as string))
+      }
+      markDirty()
+      setHistoryVisible(false)
+    },
+    [history, markDirty],
+  )
+
   if (isLoading) {
     return <LoadingView message="Loading note..." />
   }
@@ -257,12 +312,13 @@ export default function NoteDetailScreen() {
 
   const isTrash = note.StatusName === 'trash'
   const isArchive = note.StatusName === 'archived'
+  const isOwner = user?.id === note.userId
 
   const isImageBg = palette && backgroundImages[palette]
   const paletteBg = palette && !isImageBg ? paletteColorValues[palette] : null
   const containerBg = paletteBg || theme.background
-  const textColor = (paletteBg || isImageBg) ? '#1A1A1A' : theme.text
-  const secondaryColor = (paletteBg || isImageBg) ? '#444' : theme.textSecondary
+  const textColor = paletteBg || isImageBg ? '#1A1A1A' : theme.text
+  const secondaryColor = paletteBg || isImageBg ? '#444' : theme.textSecondary
 
   const bgImageUri = isImageBg
     ? `${config.apiUrl}${backgroundImages[palette!]}`
@@ -288,7 +344,9 @@ export default function NoteDetailScreen() {
                     {
                       text: 'Discard',
                       style: 'destructive',
-                      onPress: () => router.back(),
+                      onPress: () => {
+                        router.back()
+                      },
                     },
                   ])
                 } else {
@@ -297,34 +355,36 @@ export default function NoteDetailScreen() {
               }}
               style={styles.headerBtn}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="arrow-back-outline" size={20} color={secondaryColor} />
-                <Text style={[styles.backText, { color: secondaryColor }]}>Back</Text>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+              >
+                <Ionicons
+                  name="arrow-back-outline"
+                  size={20}
+                  color={secondaryColor}
+                />
+                <Text style={[styles.backText, { color: secondaryColor }]}>
+                  Edit
+                </Text>
               </View>
             </Pressable>
           ),
           headerRight: () => (
             <View style={styles.headerActions}>
-              {!isTrash && (
-                <Pressable
-                  onPress={handlePin}
-                  style={styles.headerBtn}
-                >
-                  <Ionicons name="pin-outline" size={22} color={note.pinned ? textColor : secondaryColor} />
-                </Pressable>
-              )}
               {dirty && (
                 <Pressable
                   onPress={handleSave}
                   disabled={saving || updateNote.isPending}
-                  style={[styles.headerBtn, styles.saveBtn, { backgroundColor: theme.accent }]}
+                  style={[
+                    styles.headerBtn,
+                    styles.saveBtn,
+                    { backgroundColor: theme.accent },
+                  ]}
                 >
                   {saving || updateNote.isPending ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.saveText}>
-                      Save
-                    </Text>
+                    <Text style={styles.saveText}>Save</Text>
                   )}
                 </Pressable>
               )}
@@ -345,13 +405,27 @@ export default function NoteDetailScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.six }}
         keyboardShouldPersistTaps="handled"
       >
-        <ImageAttachments
-          image={image}
-          onChange={(url) => {
-            setImage(url)
-            markDirty()
-          }}
-        />
+        {!isTrash && (
+          <ImageAttachments
+            image={image}
+            onChange={(url) => {
+              setImage(url)
+              markDirty()
+            }}
+          />
+        )}
+
+        {reminderAt && !isTrash && (
+          <Pressable
+            style={[styles.reminderBadge, { backgroundColor: 'rgba(0,0,0,0.06)' }]}
+            onPress={() => setReminderVisible(true)}
+          >
+            <Ionicons name="notifications-outline" size={14} color={secondaryColor} />
+            <Text style={[styles.reminderBadgeText, { color: secondaryColor }]}>
+              {new Date(reminderAt).toLocaleString()}
+            </Text>
+          </Pressable>
+        )}
 
         <TextInput
           style={[styles.titleInput, { color: textColor }]}
@@ -413,7 +487,12 @@ export default function NoteDetailScreen() {
                   { color: isChecklist ? '#fff' : textColor },
                 ]}
               >
-                <Ionicons name="checkbox-outline" size={14} color={isChecklist ? '#fff' : textColor} /> Checklist
+                <Ionicons
+                  name="checkbox-outline"
+                  size={14}
+                  color={isChecklist ? '#fff' : textColor}
+                />{' '}
+                Checklist
               </Text>
             </Pressable>
 
@@ -428,7 +507,68 @@ export default function NoteDetailScreen() {
               onPress={() => setDrawingVisible(true)}
             >
               <Text style={[styles.toolBtnText, { color: textColor }]}>
-                <Ionicons name="brush-outline" size={14} color={textColor} /> Drawing
+                <Ionicons name="brush-outline" size={14} color={textColor} />{' '}
+                Drawing
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.toolBtn,
+                {
+                  backgroundColor: 'rgba(0,0,0,0.06)',
+                  opacity: pressed ? 0.7 : 1,
+                },
+                reminderAt && { backgroundColor: theme.accent },
+              ]}
+              onPress={() => setReminderVisible(true)}
+            >
+              <Text
+                style={[
+                  styles.toolBtnText,
+                  { color: reminderAt ? '#fff' : textColor },
+                ]}
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={14}
+                  color={reminderAt ? '#fff' : textColor}
+                />{' '}
+                Reminder
+              </Text>
+            </Pressable>
+
+            {isOwner && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.toolBtn,
+                  {
+                    backgroundColor: 'rgba(0,0,0,0.06)',
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+                onPress={() => setShareVisible(true)}
+              >
+                <Text style={[styles.toolBtnText, { color: textColor }]}>
+                  <Ionicons name="share-social-outline" size={14} color={textColor} />{' '}
+                  Share
+                </Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.toolBtn,
+                {
+                  backgroundColor: 'rgba(0,0,0,0.06)',
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+              onPress={() => setHistoryVisible(true)}
+            >
+              <Text style={[styles.toolBtnText, { color: textColor }]}>
+                <Ionicons name="time-outline" size={14} color={textColor} />{' '}
+                History
               </Text>
             </Pressable>
           </View>
@@ -476,7 +616,9 @@ export default function NoteDetailScreen() {
             ]}
             onPress={handleArchive}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
               <Ionicons name="archive-outline" size={18} color={textColor} />
               <Text style={[styles.actionBtnText, { color: textColor }]}>
                 {isArchive ? 'Unarchive' : 'Archive'}
@@ -490,7 +632,9 @@ export default function NoteDetailScreen() {
             ]}
             onPress={handleDelete}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
               <Ionicons name="trash-outline" size={18} color="#FF3B30" />
               <Text style={[styles.actionBtnText, { color: '#FF3B30' }]}>
                 Move to Trash
@@ -540,6 +684,105 @@ export default function NoteDetailScreen() {
         onClose={() => setDrawingVisible(false)}
         onSave={saveDrawing}
       />
+
+      <ReminderSheet
+        visible={reminderVisible}
+        onClose={() => setReminderVisible(false)}
+        currentReminder={reminderAt}
+        onSave={handleSaveReminder}
+      />
+
+      {isOwner && (
+        <ShareSheet
+          visible={shareVisible}
+          onClose={() => setShareVisible(false)}
+          noteId={id}
+        />
+      )}
+
+      {/* History modal */}
+      <Modal
+        visible={historyVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setHistoryVisible(false)}
+      >
+        <View style={styles.backdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setHistoryVisible(false)}
+          />
+          <View style={[styles.sheet, { backgroundColor: theme.surface }]}>
+            <View style={[styles.handle, { backgroundColor: theme.border }]} />
+            <Text style={[styles.sheetTitle, { color: theme.text }]}>
+              Version history
+            </Text>
+            {history.isLoading ? (
+              <ActivityIndicator
+                color={theme.accent}
+                style={{ marginVertical: Spacing.four }}
+              />
+            ) : history.versions.length === 0 ? (
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                No versions saved yet
+              </Text>
+            ) : (
+              <ScrollView style={styles.historyList}>
+                {history.versions.map((v) => (
+                  <Pressable
+                    key={v.id}
+                    style={({ pressed }) => [
+                      styles.historyRow,
+                      {
+                        backgroundColor: theme.backgroundElement,
+                        opacity: pressed ? 0.7 : 1,
+                      },
+                    ]}
+                    onPress={() =>
+                      Alert.alert(
+                        'Restore version',
+                        'Replace the current note with this version?',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Restore',
+                            onPress: () =>
+                              void handleRestoreVersion(v.id),
+                          },
+                        ],
+                      )
+                    }
+                  >
+                    <View style={styles.historyInfo}>
+                      <Text style={[styles.historyTime, { color: theme.text }]}>
+                        {new Date(v.timestamp).toLocaleString()}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.historyType,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {v.changeType === 'create'
+                          ? 'Created'
+                          : v.changeType === 'delete'
+                            ? 'Deleted'
+                            : 'Edited'}
+                        {v.title ? ` — ${v.title}` : ''}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="refresh-outline"
+                      size={18}
+                      color={theme.textSecondary}
+                    />
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   )
 }
@@ -547,11 +790,31 @@ export default function NoteDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  headerBtn: { paddingHorizontal: Spacing.two, paddingVertical: 6, borderRadius: Radius.sm },
+  headerBtn: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 6,
+    borderRadius: Radius.sm,
+  },
   saveBtn: { paddingHorizontal: Spacing.three },
-  headerActions: { flexDirection: 'row', gap: Spacing.two, alignItems: 'center' },
+  headerActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    alignItems: 'center',
+  },
   backText: { fontSize: 15, fontWeight: '600' },
   saveText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  reminderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginHorizontal: Spacing.four,
+    marginTop: Spacing.two,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    gap: 6,
+  },
+  reminderBadgeText: { fontSize: 12, fontWeight: '600' },
   titleInput: {
     fontSize: 24,
     fontWeight: '700',
@@ -566,6 +829,7 @@ const styles = StyleSheet.create({
   },
   editToolbar: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     gap: Spacing.two,
@@ -599,4 +863,39 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.03)',
   },
   actionBtnText: { fontSize: 13, fontWeight: '600' },
+  backdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  sheet: {
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.six,
+    gap: Spacing.three,
+    maxHeight: '70%',
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  sheetTitle: { fontSize: 18, fontWeight: '700' },
+  emptyText: { textAlign: 'center', paddingVertical: Spacing.four, fontSize: 14 },
+  historyList: {},
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    marginBottom: Spacing.two,
+    gap: Spacing.two,
+  },
+  historyInfo: { flex: 1 },
+  historyTime: { fontSize: 14, fontWeight: '600' },
+  historyType: { fontSize: 12, marginTop: 2 },
 })

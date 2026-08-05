@@ -68,7 +68,7 @@ export default function SignupScreen() {
       >
         <View style={styles.brandSection}>
           <View style={[styles.logoContainer, { backgroundColor: theme.accentLight }]}>
-            <Image source={require('../../../assets/images/logo-glow.png')} style={{ width: 48, height: 48 }} resizeMode="contain" />
+            <Image source={require('../../../assets/logo128.png')} style={{ width: 48, height: 48 }} resizeMode="contain" />
           </View>
           <Text style={[styles.appName, { color: theme.text }]}>Create Account</Text>
           <Text style={[styles.tagline, { color: theme.textSecondary }]}>Start organizing your notes today</Text>
@@ -76,8 +76,16 @@ export default function SignupScreen() {
 
         <View style={[styles.card, { backgroundColor: theme.surface }, Shadow.md]}>
           {error !== '' && (
-            <View style={[styles.errorBanner, { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' }]}>
-              <Text style={{ color: '#DC2626', fontSize: 13 }}>{error}</Text>
+            <View
+              style={[
+                styles.errorBanner,
+                {
+                  backgroundColor: 'rgba(239,68,68,0.12)',
+                  borderColor: 'rgba(239,68,68,0.45)',
+                },
+              ]}
+            >
+              <Text style={{ color: theme.danger, fontSize: 13 }}>{error}</Text>
             </View>
           )}
 

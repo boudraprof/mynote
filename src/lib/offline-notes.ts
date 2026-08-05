@@ -19,11 +19,13 @@ export async function getLocalNotes(params?: {
   const db = await getDb()
 
   const statusFilter =
-    params?.field === 'archived'
-      ? 'archived'
-      : params?.field === 'trash'
-        ? 'trash'
-        : 'active'
+    params?.field === 'reminder'
+      ? 'reminder'
+      : params?.field === 'archived'
+        ? 'archived'
+        : params?.field === 'trash'
+          ? 'trash'
+          : 'active'
 
   const rows = await db
     .select()
@@ -57,7 +59,8 @@ export async function createLocalNote(input: NoteInput) {
     checklist: input.checklist ?? false,
     checklistItems: input.checklistItems ?? null,
     palette: input.palette ?? null,
-    statusName: 'active',
+    statusName: input.reminderAt ? 'reminder' : 'active',
+    reminderAt: input.reminderAt ?? null,
     createdAt: timestamp,
     updatedAt: timestamp,
     synced: false,
@@ -96,6 +99,12 @@ export async function updateLocalNote(input: NoteUpdate) {
       ...(input.palette !== undefined && { palette: input.palette }),
       ...(input.statusName !== undefined && {
         statusName: input.statusName,
+      }),
+      ...(input.reminderAt !== undefined && {
+        reminderAt: input.reminderAt,
+        // Mirror the server: setting a reminder moves the note to the
+        // reminder status, clearing it moves it back to active.
+        statusName: input.reminderAt ? 'reminder' : 'active',
       }),
       updatedAt: timestamp,
       synced: false,
@@ -177,8 +186,9 @@ export async function mergeServerNotes(serverNotes: ApiNote[]) {
             checklist: note.checklist ?? false,
             checklistItems: note.checklistItems,
             palette: note.palette,
-            statusName: note.StatusName ?? 'active',
+            statusName: note.StatusName ?? (note.reminderAt ? 'reminder' : 'active'),
             userId: note.userId,
+            reminderAt: note.reminderAt ?? null,
             updatedAt: note.updatedAt,
             synced: true,
           })
@@ -198,8 +208,9 @@ export async function mergeServerNotes(serverNotes: ApiNote[]) {
         checklist: note.checklist ?? false,
         checklistItems: note.checklistItems,
         palette: note.palette,
-        statusName: note.StatusName ?? 'active',
+        statusName: note.StatusName ?? (note.reminderAt ? 'reminder' : 'active'),
         createdAt: note.createdAt,
+        reminderAt: note.reminderAt ?? null,
         updatedAt: note.updatedAt,
         synced: true,
       })
@@ -239,6 +250,7 @@ function rowToNote(row: typeof localNotes.$inferSelect): ApiNote {
     checklist: row.checklist ?? false,
     checklistItems: row.checklistItems,
     palette: row.palette,
+    reminderAt: row.reminderAt ?? null,
     StatusName: row.statusName ?? 'active',
     createdAt: row.createdAt ?? now(),
     updatedAt: row.updatedAt ?? now(),

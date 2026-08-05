@@ -5,13 +5,14 @@ export interface NoteInput {
   title?: string | null
   content?: string | null
   image?: string | null
-  labels?: Array<string>
+  labels?: string[]
   statusId?: string
   pinned?: boolean
   position?: number
   checklist?: boolean
   checklistItems?: string | null
   palette?: string | null
+  reminderAt?: string | null
 }
 
 export interface NoteUpdate extends NoteInput {
@@ -29,7 +30,7 @@ export async function getNotes(params?: {
   limit?: number
   offset?: number
   label?: string
-}): Promise<ApiResponse<Array<ApiNote>>> {
+}): Promise<ApiResponse<ApiNote[]>> {
   const { data } = await api.get('/notes', { params })
   return data
 }
@@ -59,7 +60,7 @@ export async function copyNote(note: NoteInput): Promise<ApiResult> {
   return data
 }
 
-export async function reorderNotes(items: Array<ReorderItem>): Promise<ApiResult> {
+export async function reorderNotes(items: ReorderItem[]): Promise<ApiResult> {
   const { data } = await api.post('/notes', { action: 'reorder', data: items })
   return data
 }

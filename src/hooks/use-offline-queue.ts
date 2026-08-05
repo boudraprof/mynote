@@ -42,6 +42,8 @@ export function useOfflineQueue(): UseOfflineQueueResult {
   }, [])
 
   useEffect(() => {
+    // Load the sync queue on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load-on-mount
     void refreshQueue()
   }, [refreshQueue])
 
@@ -58,7 +60,7 @@ export function useOfflineQueue(): UseOfflineQueueResult {
           await syncToServer(op.operation, op.noteId, data)
           await removeSyncOperation(op.id)
           await markNoteSynced(op.noteId)
-        } catch (err) {
+        } catch {
           logger.warn(`Failed to sync operation ${op.id}`, 'Sync')
         }
       }
@@ -71,12 +73,14 @@ export function useOfflineQueue(): UseOfflineQueueResult {
     }
   }, [isOnline, isSyncing, refreshQueue])
 
-  // Auto-sync when coming online
+  // Auto-sync when coming online. The guard reads the latest values inside
+  // syncNow, so this intentionally only re-runs on connectivity changes.
   useEffect(() => {
     if (isOnline && queueLength > 0 && !isSyncing) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- auto-sync trigger
       void syncNow()
     }
-  }, [isOnline])
+  }, [isOnline]) // eslint-disable-line react-hooks/exhaustive-deps -- retry is gated by syncNow's own guards
 
   return {
     isOnline,

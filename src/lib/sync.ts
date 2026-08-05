@@ -41,12 +41,12 @@ export async function syncToServer(
  * Sync all pending operations
  */
 export async function syncAllPending(
-  operations: Array<{
+  operations: {
     id: string
     noteId: string
     operation: string
     data?: string
-  }>,
+  }[],
   onProgress?: (completed: number, total: number) => void
 ): Promise<{ success: number; failed: number }> {
   let success = 0

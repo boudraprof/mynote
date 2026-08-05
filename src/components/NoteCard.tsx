@@ -4,6 +4,7 @@ import type { ApiNote } from '@/api/types'
 import { Radius, Shadow, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/use-theme'
 import { config } from '@/lib/env'
+import { htmlToPlainText } from '@/lib/html'
 
 const paletteColorValues: Record<string, string> = {
   coral: '#f4a460',
@@ -58,7 +59,7 @@ export function NoteCard({ note, onPress, onLongPress }: NoteCardProps) {
 
   const parseChecklistItems = (
     raw: string | null,
-  ): Array<{ text: string; checked: boolean }> => {
+  ): { text: string; checked: boolean }[] => {
     if (!raw) return []
     try {
       return JSON.parse(raw)
@@ -180,10 +181,7 @@ export function NoteCard({ note, onPress, onLongPress }: NoteCardProps) {
           style={[styles.content, { color: secondaryColor }]}
           numberOfLines={4}
         >
-          {note.content
-            .replace(/<[^>]*>/g, '')
-            .replace(/&nbsp;/g, ' ')
-            .trim()}
+          {htmlToPlainText(note.content)}
         </Text>
       ) : null}
 

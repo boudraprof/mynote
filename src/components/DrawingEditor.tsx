@@ -6,7 +6,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native'
 import Svg, { Path, Rect } from 'react-native-svg'
@@ -52,7 +51,7 @@ export function DrawingEditor({ visible, onClose, onSave }: DrawingEditorProps) 
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const viewShotRef = useRef<ViewShotRef>(null)
-  const [strokes, setStrokes] = useState<Array<Stroke>>([])
+  const [strokes, setStrokes] = useState<Stroke[]>([])
   const [current, setCurrent] = useState<Stroke | null>(null)
   const [color, setColor] = useState(PEN_COLORS[0])
   const [width, setWidth] = useState(PEN_WIDTHS[1])

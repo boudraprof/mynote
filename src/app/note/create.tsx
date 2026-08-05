@@ -54,27 +54,41 @@ const backgroundImages: Record<string, string> = {
   'bg-marble': '/backgrounds/bg-marble.png',
 }
 
-type ActiveSheet = 'add' | 'theme' | 'format' | null
+type ActiveSheet = 'add' | 'theme' | null
 
 export default function CreateNoteScreen() {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const isOnline = useNetwork()
+  // Latest-value ref so the autosave debounce isn't restarted on connectivity changes
+  const isOnlineRef = useRef(isOnline)
+  useEffect(() => {
+    isOnlineRef.current = isOnline
+  }, [isOnline])
   const noteIdRef = useRef<string | null>(null)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [labels, setLabels] = useState<Array<string>>([])
+  const [labels, setLabels] = useState<string[]>([])
   const [isChecklist, setIsChecklist] = useState(false)
-  const [checklistItems, setChecklistItems] = useState<Array<ChecklistItem>>([])
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
   const [palette, setPalette] = useState<string | null>(null)
   const [image, setImage] = useState<string | null>(null)
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null)
   const [drawingVisible, setDrawingVisible] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
+    'idle',
+  )
 
   useEffect(() => {
-    const hasContent = title || content || labels.length > 0 || palette || image || checklistItems.length > 0
+    const hasContent =
+      title ||
+      content ||
+      labels.length > 0 ||
+      palette ||
+      image ||
+      checklistItems.length > 0
     if (!hasContent) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset status when note is empty
       setSaveStatus('idle')
       return
     }
@@ -102,10 +116,8 @@ export default function CreateNoteScreen() {
         }
         setSaveStatus('saved')
         // Push the locally-saved note to the server when online
-        if (isOnline) {
-          syncPendingNotes().catch((e) =>
-            console.warn('Auto-sync failed:', e),
-          )
+        if (isOnlineRef.current) {
+          syncPendingNotes().catch((e) => console.warn('Auto-sync failed:', e))
         }
       } catch {
         setSaveStatus('idle')
@@ -121,7 +133,10 @@ export default function CreateNoteScreen() {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (!permission.granted) {
-        Alert.alert('Permission Required', 'Please grant media library access to choose images.')
+        Alert.alert(
+          'Permission Required',
+          'Please grant media library access to choose images.',
+        )
         return
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -129,6 +144,7 @@ export default function CreateNoteScreen() {
         allowsEditing: true,
         quality: 0.8,
       })
+      console.log(result)
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0]
         const uploadResult = await uploadImage({
@@ -152,7 +168,10 @@ export default function CreateNoteScreen() {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync()
       if (!permission.granted) {
-        Alert.alert('Permission Required', 'Please grant camera access to take photos.')
+        Alert.alert(
+          'Permission Required',
+          'Please grant camera access to take photos.',
+        )
         return
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -182,31 +201,31 @@ export default function CreateNoteScreen() {
     setIsChecklist((prev) => !prev)
   }, [])
 
-  const saveDrawing = useCallback(
-    async (uri: string) => {
-      try {
-        const uploadResult = await uploadImage({
+  const saveDrawing = useCallback(async (uri: string) => {
+    try {
+      const uploadResult = await uploadImage(
+        {
           uri,
           name: `drawing-${Date.now()}.png`,
           type: 'image/png',
-        })
-        if (uploadResult.url) {
-          setImage(uploadResult.url)
-        } else {
-          Alert.alert('Error', uploadResult.errors || 'Upload failed')
-        }
-      } catch {
-        Alert.alert('Error', 'Failed to save drawing')
+        },
+        'drawings',
+      )
+      if (uploadResult.url) {
+        setImage(uploadResult.url)
+      } else {
+        Alert.alert('Error', uploadResult.errors || 'Upload failed')
       }
-    },
-    [],
-  )
+    } catch {
+      Alert.alert('Error', 'Failed to save drawing')
+    }
+  }, [])
 
   const isImageBg = palette && backgroundImages[palette]
   const paletteBg = palette && !isImageBg ? paletteColorValues[palette] : null
   const containerBg = paletteBg || theme.background
-  const textColor = (paletteBg || isImageBg) ? '#1A1A1A' : theme.text
-  const secondaryColor = (paletteBg || isImageBg) ? '#444' : theme.textSecondary
+  const textColor = paletteBg || isImageBg ? '#1A1A1A' : theme.text
+  const secondaryColor = paletteBg || isImageBg ? '#444' : theme.textSecondary
 
   const bgImageUri = isImageBg
     ? `${config.apiUrl}${backgroundImages[palette!]}`
@@ -271,7 +290,7 @@ export default function CreateNoteScreen() {
             />
           )}
 
-          {/* <LabelPicker selectedLabels={labels} onChange={setLabels} /> */}
+          <LabelPicker selectedLabels={labels} onChange={setLabels} />
         </ScrollView>
 
         {/* ── Save status ─────────────────────────────── */}
@@ -280,7 +299,11 @@ export default function CreateNoteScreen() {
             {saveStatus === 'saving' ? (
               <ActivityIndicator size="small" color={secondaryColor} />
             ) : (
-              <Ionicons name="checkmark-circle-outline" size={16} color={theme.success} />
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={16}
+                color={theme.success}
+              />
             )}
             <Text style={[styles.saveStatusText, { color: secondaryColor }]}>
               {saveStatus === 'saving' ? 'Saving…' : 'Saved'}
@@ -295,7 +318,7 @@ export default function CreateNoteScreen() {
             {
               backgroundColor: containerBg,
               borderTopColor: 'rgba(0,0,0,0.08)',
-              paddingBottom: insets.bottom + Spacing.two,
+               paddingBottom: insets.bottom + Spacing.two,
             },
           ]}
         >
@@ -305,10 +328,12 @@ export default function CreateNoteScreen() {
               styles.actionBarBtn,
               { opacity: pressed ? 0.6 : 1 },
             ]}
-            onPress={() => setActiveSheet('add')}
+            onPress={() => {setActiveSheet('add')}}
           >
             <Ionicons name="add-circle-outline" size={22} color={textColor} />
-            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>Add</Text>
+            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>
+              Add
+            </Text>
           </Pressable>
 
           {/* Theme / palette button */}
@@ -319,41 +344,56 @@ export default function CreateNoteScreen() {
             ]}
             onPress={() => setActiveSheet('theme')}
           >
-            <Ionicons name="color-palette-outline" size={22} color={textColor} />
-            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>Theme</Text>
-          </Pressable>
-
-          {/* Text formatting button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionBarBtn,
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
-            onPress={() => setActiveSheet('format')}
-          >
-            <Ionicons name="text-outline" size={22} color={textColor} />
-            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>Format</Text>
+            <Ionicons
+              name="color-palette-outline"
+              size={22}
+              color={textColor}
+            />
+            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>
+              Theme
+            </Text>
           </Pressable>
         </View>
       </View>
 
       {/* ── Add content sheet ────────────────────────────── */}
-      <ActionSheet visible={activeSheet === 'add'} onClose={() => setActiveSheet(null)}>
+      <ActionSheet
+        visible={activeSheet === 'add'}
+        onClose={() => {
+          setActiveSheet(null)
+        }}
+      >
         <View style={styles.sheetContent}>
-          <Text style={[styles.sheetTitle, { color: textColor }]}>Add to note</Text>
+          <Text style={[styles.sheetTitle, { color: textColor }]}>
+            Add to note
+          </Text>
 
           <Pressable style={styles.sheetRow} onPress={takePhoto}>
-            <View style={[styles.sheetIcon, { backgroundColor: theme.backgroundElement }]}>
+            <View
+              style={[
+                styles.sheetIcon,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
               <Ionicons name="camera-outline" size={22} color={textColor} />
             </View>
-            <Text style={[styles.sheetRowLabel, { color: textColor }]}>Take photo</Text>
+            <Text style={[styles.sheetRowLabel, { color: textColor }]}>
+              Take photo
+            </Text>
           </Pressable>
 
           <Pressable style={styles.sheetRow} onPress={pickFromGallery}>
-            <View style={[styles.sheetIcon, { backgroundColor: theme.backgroundElement }]}>
+            <View
+              style={[
+                styles.sheetIcon,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
               <Ionicons name="image-outline" size={22} color={textColor} />
             </View>
-            <Text style={[styles.sheetRowLabel, { color: textColor }]}>Add image</Text>
+            <Text style={[styles.sheetRowLabel, { color: textColor }]}>
+              Add image
+            </Text>
           </Pressable>
 
           <Pressable
@@ -363,17 +403,30 @@ export default function CreateNoteScreen() {
               setDrawingVisible(true)
             }}
           >
-            <View style={[styles.sheetIcon, { backgroundColor: theme.backgroundElement }]}>
+            <View
+              style={[
+                styles.sheetIcon,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
               <Ionicons name="brush-outline" size={22} color={textColor} />
             </View>
-            <Text style={[styles.sheetRowLabel, { color: textColor }]}>Drawing</Text>
+            <Text style={[styles.sheetRowLabel, { color: textColor }]}>
+              Drawing
+            </Text>
           </Pressable>
 
-          <Pressable
-            style={styles.sheetRow}
-            onPress={toggleChecklist}
-          >
-            <View style={[styles.sheetIcon, { backgroundColor: isChecklist ? theme.accent : theme.backgroundElement }]}>
+          <Pressable style={styles.sheetRow} onPress={toggleChecklist}>
+            <View
+              style={[
+                styles.sheetIcon,
+                {
+                  backgroundColor: isChecklist
+                    ? theme.accent
+                    : theme.backgroundElement,
+                },
+              ]}
+            >
               <Ionicons
                 name="checkbox-outline"
                 size={22}
@@ -388,34 +441,21 @@ export default function CreateNoteScreen() {
       </ActionSheet>
 
       {/* ── Theme sheet ──────────────────────────────────── */}
-      <ActionSheet visible={activeSheet === 'theme'} onClose={() => setActiveSheet(null)}>
+      <ActionSheet
+        visible={activeSheet === 'theme'}
+        onClose={() => setActiveSheet(null)}
+      >
         <View style={styles.sheetContent}>
-          <Text style={[styles.sheetTitle, { color: textColor }]}>Note theme</Text>
-          <PalettePicker selected={palette} onChange={(p) => { setPalette(p); setActiveSheet(null) }} />
-        </View>
-      </ActionSheet>
-
-      {/* ── Format sheet ─────────────────────────────────── */}
-      <ActionSheet visible={activeSheet === 'format'} onClose={() => setActiveSheet(null)}>
-        <View style={styles.sheetContent}>
-          <Text style={[styles.sheetTitle, { color: textColor }]}>Text format</Text>
-          <View style={styles.formatRow}>
-            <Pressable style={[styles.formatBtn, { backgroundColor: theme.backgroundElement }]}>
-              <Text style={[styles.formatBtnText, { color: textColor, fontWeight: '700' }]}>B</Text>
-            </Pressable>
-            <Pressable style={[styles.formatBtn, { backgroundColor: theme.backgroundElement }]}>
-              <Text style={[styles.formatBtnText, { color: textColor, fontStyle: 'italic' }]}>I</Text>
-            </Pressable>
-            <Pressable style={[styles.formatBtn, { backgroundColor: theme.backgroundElement }]}>
-              <Text style={[styles.formatBtnText, { color: textColor, textDecorationLine: 'underline' }]}>U</Text>
-            </Pressable>
-            <Pressable style={[styles.formatBtn, { backgroundColor: theme.backgroundElement }]}>
-              <Text style={[styles.formatBtnText, { color: textColor }]}>S</Text>
-            </Pressable>
-          </View>
-          <Text style={[styles.formatNote, { color: secondaryColor }]}>
-            Text formatting will be available in the editor toolbar.
+          <Text style={[styles.sheetTitle, { color: textColor }]}>
+            Note theme
           </Text>
+          <PalettePicker
+            selected={palette}
+            onChange={(p) => {
+              setPalette(p)
+              setActiveSheet(null)
+            }}
+          />
         </View>
       </ActionSheet>
 
@@ -458,7 +498,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: Spacing.one,
     borderRadius: Radius.sm,
-    gap: 2,
+    // gap: 2,
   },
   actionBarLabel: {
     fontSize: 11,
@@ -514,27 +554,5 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 10,
     overflow: 'hidden',
-  },
-
-  // ── Format sheet ──────────────────────────────────────
-  formatRow: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-    paddingVertical: Spacing.two,
-  },
-  formatBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  formatBtnText: {
-    fontSize: 20,
-  },
-  formatNote: {
-    fontSize: 13,
-    textAlign: 'center',
-    paddingVertical: Spacing.three,
   },
 })

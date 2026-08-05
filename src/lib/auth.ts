@@ -24,7 +24,7 @@ export async function signInEmail(body: { email: string; password: string }) {
       throw new BetterAuthError(res.error.message ?? 'Login failed')
     }
     return res.data
-  } catch (error) {}
+  } catch {}
 }
 
 export async function signUpEmail(body: {
@@ -38,7 +38,7 @@ export async function signUpEmail(body: {
       throw new BetterAuthError(res.error.message ?? 'Signup failed')
     }
     return res.data
-  } catch (error) {
+  } catch {
     
   }
 }

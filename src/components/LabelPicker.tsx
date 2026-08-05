@@ -1,8 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useState } from 'react'
 import {
-  Alert,
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -14,8 +12,8 @@ import { Spacing } from '@/constants/theme'
 import { useCreateLabel, useLabels } from '@/hooks/use-labels'
 
 interface LabelPickerProps {
-  selectedLabels: Array<string>
-  onChange: (labels: Array<string>) => void
+  selectedLabels: string[]
+  onChange: (labels: string[]) => void
 }
 
 export function LabelPicker({ selectedLabels, onChange }: LabelPickerProps) {

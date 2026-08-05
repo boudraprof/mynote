@@ -3,6 +3,7 @@ import { config } from './env'
 import type { AxiosInstance } from 'axios'
 import { authClient } from '@/lib/auth'
 
+// eslint-disable-next-line import/no-named-as-default-member -- axios's types only expose a default export
 const api: AxiosInstance = axios.create({
   baseURL: config.apiBaseUrl,
   timeout: 10000,
@@ -11,10 +12,9 @@ const api: AxiosInstance = axios.create({
 
 api.interceptors.request.use(async (req) => {
   const cookie = authClient.getCookie()
-  const headers = {
-    Cookie: cookie,
+  if (cookie) {
+    req.headers.set('Cookie', cookie)
   }
-  req.headers.set(headers)
   return req
 })
 

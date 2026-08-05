@@ -18,7 +18,6 @@ import {
   updateLocalNote,
   deleteLocalNote as deleteLocalNoteDb,
 } from '@/lib/offline-notes'
-import type { ApiNote } from '@/api/types'
 
 const NOTES_KEY = 'notes'
 
@@ -151,7 +150,7 @@ export function useCopyNote() {
 export function useReorderNotes() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (items: Array<ReorderItem>) => reorderNotes(items),
+    mutationFn: (items: ReorderItem[]) => reorderNotes(items),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [NOTES_KEY] })
     },

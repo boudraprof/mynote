@@ -44,7 +44,7 @@ interface NoteData {
 interface ImportResult {
   success: number
   failed: number
-  errors: Array<{ note: Partial<NoteData>; error: string }>
+  errors: { note: Partial<NoteData>; error: string }[]
 }
 
 type ExportFormat = 'json' | 'markdown'

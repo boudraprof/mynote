@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useTheme } from '@/hooks/use-theme'
 import { Spacing } from '@/constants/theme'
@@ -10,8 +9,8 @@ export interface ChecklistItem {
 }
 
 interface ChecklistEditorProps {
-  items: Array<ChecklistItem>
-  onChange: (items: Array<ChecklistItem>) => void
+  items: ChecklistItem[]
+  onChange: (items: ChecklistItem[]) => void
 }
 
 export function ChecklistEditor({ items, onChange }: ChecklistEditorProps) {

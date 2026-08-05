@@ -6,7 +6,7 @@ export interface Label {
   name: string
 }
 
-export async function getLabels(): Promise<{ data: Array<Label> }> {
+export async function getLabels(): Promise<{ data: Label[] }> {
   const { data } = await api.get('/labels')
   return data
 }

@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
 import {
-  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -38,6 +37,7 @@ export function ImageAttachments({ image, onChange }: ImageAttachmentsProps) {
         allowsEditing: true,
         quality: 0.8,
       })
+    
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0]
         const uploadResult = await uploadImage({
@@ -51,7 +51,7 @@ export function ImageAttachments({ image, onChange }: ImageAttachmentsProps) {
           Alert.alert('Error', uploadResult.errors || 'Upload failed')
         }
       }
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Failed to pick image')
     }
   }
@@ -60,14 +60,15 @@ export function ImageAttachments({ image, onChange }: ImageAttachmentsProps) {
     onChange(null)
   }
 
+  
   return (
     <View style={styles.container}>
-      {image ? (
+      {image  ? (
         <View style={styles.imageContainer}>
           <Image
             source={{
-              uri: image.startsWith('http')
-                ? image
+              uri:image?.startsWith('http')
+                ? image 
                 : `${config.apiUrl}${image}`,
             }}
             style={styles.image}

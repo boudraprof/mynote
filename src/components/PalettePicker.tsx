@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Radius, Shadow, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/use-theme'
 

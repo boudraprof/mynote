@@ -1,3 +1,5 @@
+import { Platform } from 'react-native'
+
 /**
  * Error tracking utility for React Native
  * Provides a centralized way to track errors
@@ -26,12 +28,7 @@ const MAX_QUEUE_SIZE = 50
  * Get platform info
  */
 function getPlatform(): string {
-  try {
-    const Platform = require('react-native').Platform
-    return `${Platform.OS}-${Platform.Version}`
-  } catch {
-    return 'unknown'
-  }
+  return `${Platform.OS}-${Platform.Version}`
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   Image,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -17,15 +18,26 @@ import { TextInput } from 'react-native-paper'
 
 import { useTheme } from '@/hooks/use-theme'
 import { Radius, Shadow, Spacing } from '@/constants/theme'
+import { useThemePreference } from '@/providers/theme-provider'
+import type { ThemePreference } from '@/providers/theme-provider'
 import { useAuth } from '@/providers/auth-provider'
+import * as ImagePicker from 'expo-image-picker'
 import { config } from '@/lib/env'
 import { changeEmail, changePassword, deleteUser, updateUser } from '@/lib/auth'
 import { uploadImage } from '@/api/upload'
+import { getNotes } from '@/api/notes'
 
 export default function ProfileScreen() {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const { user, signOut } = useAuth()
+  const { preference, setPreference } = useThemePreference()
+
+  const themeOptions: { value: ThemePreference; label: string }[] = [
+    { value: 'light', label: 'Light' },
+    { value: 'dark', label: 'Dark' },
+    { value: 'system', label: 'System' },
+  ]
 
   const [name, setName] = useState(user?.name ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
@@ -34,22 +46,25 @@ export default function ProfileScreen() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [imageUrl, setImageUrl] = useState(user?.image ?? '')
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const handlePickImage = async () => {
     try {
-      const ImagePicker = require('expo-image-picker')
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         quality: 0.8,
       })
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0]
-        const uploadResult = await uploadImage({
-          uri: asset.uri,
-          name: asset.fileName || 'photo.jpg',
-          type: asset.mimeType || 'image/jpeg',
-        })
+        const uploadResult = await uploadImage(
+          {
+            uri: asset.uri,
+            name: asset.fileName || 'photo.jpg',
+            type: asset.mimeType || 'image/jpeg',
+          },
+          'avatars',
+        )
         if (uploadResult.url) {
           setImageUrl(uploadResult.url)
           await updateUser({ image: uploadResult.url })
@@ -93,6 +108,35 @@ export default function ProfileScreen() {
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const result = await getNotes({ limit: 10000 })
+      const notes = (result.data ?? []).map((n) => ({
+        id: n.id,
+        title: n.title,
+        content: n.content,
+        labels: n.labels ?? [],
+        pinned: n.pinned ?? false,
+        checklist: n.checklist ?? false,
+        checklistItems: n.checklistItems ?? null,
+        palette: n.palette ?? null,
+        image: n.image ?? null,
+        reminderAt: n.reminderAt ?? null,
+        createdAt: n.createdAt,
+        updatedAt: n.updatedAt,
+      }))
+      await Share.share({
+        title: 'My Notes export',
+        message: JSON.stringify({ exportedAt: new Date().toISOString(), notes }, null, 2),
+      })
+    } catch {
+      Alert.alert('Error', 'Failed to export notes')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const handleDeleteAccount = useCallback(async () => {
     if (!deletePassword) {
@@ -248,6 +292,44 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Appearance Card */}
+        <View style={[styles.card, { backgroundColor: theme.surface }, Shadow.sm]}>
+          <Text style={[styles.cardTitle, { color: theme.text }]}>Appearance</Text>
+          <Text style={{ fontSize: 13, color: theme.textSecondary }}>
+            Choose how the app looks. &ldquo;System&rdquo; follows your device
+            setting.
+          </Text>
+          <View style={styles.themeOptionsRow}>
+            {themeOptions.map((option) => {
+              const selected = preference === option.value
+              return (
+                <Pressable
+                  key={option.value}
+                  style={({ pressed }) => [
+                    styles.themeOption,
+                    {
+                      backgroundColor: selected
+                        ? theme.accent
+                        : theme.backgroundElement,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}
+                  onPress={() => setPreference(option.value)}
+                >
+                  <Text
+                    style={[
+                      styles.themeOptionText,
+                      { color: selected ? '#fff' : theme.text },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        </View>
+
         <Pressable
           style={({ pressed }) => [
             styles.saveBtn,
@@ -264,6 +346,33 @@ export default function ProfileScreen() {
             </Text>
           )}
         </Pressable>
+
+        {/* Export Card */}
+        <View style={[styles.card, { backgroundColor: theme.surface }, Shadow.sm]}>
+          <Text style={[styles.cardTitle, { color: theme.text }]}>Data</Text>
+          <Text style={{ fontSize: 13, color: theme.textSecondary }}>
+            Export all your notes as JSON.
+          </Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.deleteBtn,
+              {
+                backgroundColor: theme.backgroundElement,
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}
+            onPress={handleExport}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <ActivityIndicator color={theme.accent} />
+            ) : (
+              <Text style={[styles.deleteText, { color: theme.accent }]}>
+                Export Notes
+              </Text>
+            )}
+          </Pressable>
+        </View>
 
         {/* Danger Card */}
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.danger, borderWidth: 1 }]}>
@@ -361,6 +470,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.one,
   },
   field: { gap: Spacing.one },
+  themeOptionsRow: { flexDirection: 'row', gap: Spacing.two },
+  themeOption: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+  },
+  themeOptionText: { fontSize: 14, fontWeight: '600' },
   label: { fontSize: 13, fontWeight: '600' },
   input: {
     borderRadius: Radius.md,

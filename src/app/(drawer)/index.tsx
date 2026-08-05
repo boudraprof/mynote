@@ -6,7 +6,6 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -23,16 +22,14 @@ import {
   useUpdateNote,
 } from '@/hooks/use-notes'
 import { pullServerNotes } from '@/hooks/use-sync'
-import { useLabels } from '@/hooks/use-labels'
 import { Ionicons } from '@expo/vector-icons'
-import { useAuth } from '@/providers/auth-provider'
 import { useTheme } from '@/hooks/use-theme'
 import { NoteCard } from '@/components/NoteCard'
 import { LoadingView } from '@/components/LoadingView'
 import { EmptyState } from '@/components/EmptyState'
 import { Radius, Shadow, Spacing } from '@/constants/theme'
 import api from '@/lib/api'
-import { useSession, signOut, authClient } from '@/lib/auth'
+import { useSession } from '@/lib/auth'
 
 
 
@@ -53,13 +50,13 @@ export default function HomeScreen() {
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'title'>('newest')
 
   useEffect(() => {
+    // Keep tab/label state in sync when the drawer navigates here with new
+    // params (e.g. tapping "Trash" sets ?tab=trash).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional param sync
     if (params.tab) setActiveTab(params.tab)
     if (params.label) setSelectedLabel(params.label)
   }, [params.tab, params.label])
   const searchRef = useRef<TextInput>(null)
-
-  const { data: labelsData } = useLabels()
-  const labels = labelsData?.data ?? []
 
   const { data, isLoading, refetch, isRefetching } = useNotes(
     activeTab
@@ -134,11 +131,11 @@ export default function HomeScreen() {
       const isArchive =
         note.StatusName === 'archived' || activeTab === 'archived'
 
-      const options: Array<{
+      const options: {
         text: string
         style?: 'destructive' | 'cancel'
         onPress: () => void
-      }> = [
+      }[] = [
         {
           text: 'Edit',
           onPress: () => router.push(`/note/${note.id}`),
@@ -259,23 +256,9 @@ export default function HomeScreen() {
     [copyNote, deleteNote, updateNote, activeTab],
   )
 
-  const showAccountMenu = useCallback(() => {
-    Alert.alert('Account', user?.name || user?.email, [
-      {
-        text: 'Manage Labels',
-        onPress: () => router.push('/labels'),
-      },
-      {
-        text: 'Settings',
-        onPress: () => router.push('/profile'),
-      },
-      { text: 'Sign Out', style: 'destructive', onPress: signOut },
-      { text: 'Cancel', style: 'cancel' },
-    ])
-  }, [user, signOut])
 
   if (isPending) {
-    return <LoadingView message="Loading Keep Notes..." />
+    return <LoadingView message="Loading Notes..." />
   }
 
   if (!user) {
@@ -463,7 +446,9 @@ export default function HomeScreen() {
               ? 'archive-outline'
               : activeTab === 'trash'
                 ? 'trash-outline'
-                : 'document-text-outline'
+                : activeTab === 'reminder'
+                  ? 'notifications-outline'
+                  : 'document-text-outline'
           }
           title={
             searchQuery
@@ -472,9 +457,11 @@ export default function HomeScreen() {
                 ? 'No archived notes'
                 : activeTab === 'trash'
                   ? 'Trash is empty'
-                  : selectedLabel
-                    ? `No notes in "${selectedLabel}"`
-                    : 'No notes yet'
+                  : activeTab === 'reminder'
+                    ? 'No reminders'
+                    : selectedLabel
+                      ? `No notes in "${selectedLabel}"`
+                      : 'No notes yet'
           }
           subtitle={
             searchQuery
@@ -496,6 +483,7 @@ export default function HomeScreen() {
           contentContainerStyle={{
             paddingTop: Spacing.two,
             paddingBottom: insets.bottom + 100,
+            marginHorizontal: viewMode !== 'grid' ? 10 : undefined
           }}
           refreshControl={
             <RefreshControl
@@ -553,7 +541,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1},
   authContainer: {
     flex: 1,
     justifyContent: 'center',

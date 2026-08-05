@@ -39,11 +39,10 @@ export default function LoginScreen() {
     setError('')
     try {
       const res = await signInEmail({ email, password })
-      console.log('from log', res)
-      if(res) {
+      if (res) {
         router.replace('/')
       } else {
-      setError('Login failed')
+        setError('Login failed')
       }
     } catch (e: any) {
       setError(e?.message || 'Login failed')
@@ -67,9 +66,9 @@ export default function LoginScreen() {
       >
         <View style={styles.brandSection}>
           <View style={[styles.logoContainer, { backgroundColor: theme.accentLight }]}>
-            <Image source={require('../../../assets/images/logo-glow.png')} style={{ width: 48, height: 48 }} resizeMode="contain" />
+            <Image source={require('../../../assets/logo128.png')} style={{ width: 48, height: 48 }} resizeMode="contain" />
           </View>
-          <Text style={[styles.appName, { color: theme.text }]}>Keep Notes</Text>
+          <Text style={[styles.appName, { color: theme.text }]}>My Notes</Text>
           <Text style={[styles.tagline, { color: theme.textSecondary }]}>Organize your thoughts anywhere</Text>
         </View>
 
@@ -78,8 +77,16 @@ export default function LoginScreen() {
           <Text style={[styles.formSubtitle, { color: theme.textSecondary }]}>Sign in to continue</Text>
 
           {error !== '' && (
-            <View style={[styles.errorBanner, { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' }]}>
-              <Text style={{ color: '#DC2626', fontSize: 13 }}>{error}</Text>
+            <View
+              style={[
+                styles.errorBanner,
+                {
+                  backgroundColor: 'rgba(239,68,68,0.12)',
+                  borderColor: 'rgba(239,68,68,0.45)',
+                },
+              ]}
+            >
+              <Text style={{ color: theme.danger, fontSize: 13 }}>{error}</Text>
             </View>
           )}
 
@@ -132,7 +139,7 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: theme.textSecondary }]}>Don't have an account?</Text>
+          <Text style={[styles.footerText, { color: theme.textSecondary }]}>Don&apos;t have an account?</Text>
           <Pressable onPress={() => router.replace('/auth/signup')}>
             <Text style={[styles.footerLink, { color: theme.accent }]}> Create one</Text>
           </Pressable>

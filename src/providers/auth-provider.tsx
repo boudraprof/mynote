@@ -1,7 +1,7 @@
 import {  createContext, useContext } from 'react'
 import type {ReactNode} from 'react';
 import { signOut as authSignOut, useSession } from '@/lib/auth'
-// import * as SecureStore from 'expo-secure-store'
+
 
 interface AuthContextValue {
   user: {
@@ -22,6 +22,7 @@ const AuthContext = createContext<AuthContextValue>({
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending } = useSession()
+  // const p = useDrawerProgress()
   const user = session?.user
     ? {
         id: session.user.id,

@@ -18,6 +18,7 @@ import { Radius, Spacing } from '@/constants/theme'
 
 const NAV_ITEMS = [
   { name: 'notes', label: 'Notes', icon: 'document-text-outline', path: '/', tab: undefined },
+  { name: 'reminders', label: 'Reminders', icon: 'notifications-outline', path: '/', tab: 'reminder' },
   { name: 'archive', label: 'Archive', icon: 'archive-outline', path: '/', tab: 'archived' },
   { name: 'trash', label: 'Trash', icon: 'trash-outline', path: '/', tab: 'trash' },
 ] as const
@@ -29,6 +30,7 @@ interface DrawerContentProps {
 }
 
 export function DrawerContent(_props: DrawerContentProps) {
+  
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const { user, signOut } = useAuth()
@@ -190,7 +192,10 @@ export function DrawerContent(_props: DrawerContentProps) {
           )}
         </View>
         <Pressable
-          onPress={signOut}
+          onPress={() => {
+            signOut()
+           router.navigate('/')
+          }}
           style={({ pressed }) => [
             styles.signOutBtn,
             { opacity: pressed ? 0.6 : 1 },

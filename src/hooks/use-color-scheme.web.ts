@@ -7,7 +7,12 @@ import { useColorScheme as useRNColorScheme } from 'react-native'
 export function useColorScheme() {
   const [hasHydrated, setHasHydrated] = useState(false)
 
+  // This is the canonical SSR hydration pattern: before the first client
+  // render we report 'light' to avoid a mismatch, then flip to the real
+  // value once mounted. The state can't be derived during render, so the
+  // effect-driven flip is intentional.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHasHydrated(true)
   }, [])
 

@@ -14,6 +14,7 @@ export const localNotes = sqliteTable('notes', {
   checklistItems: text('checklist_items'),
   palette: text('palette'),
   statusName: text('status_name'),
+  reminderAt: text('reminder_at'),
   createdAt: text('created_at'),
   updatedAt: text('updated_at'),
   synced: integer('synced', { mode: 'boolean' }).default(false),

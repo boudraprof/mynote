@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Animated,
   Dimensions,
@@ -28,28 +28,20 @@ export function ActionSheet({
   containerStyle,
 }: ActionSheetProps) {
   const theme = useTheme()
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current
-  const [showModal, setShowModal] = useState(false)
+  // Stable Animated.Value held in state (lazy init) so it's never read as a
+  // ref during render.
+  const [translateY] = useState(() => new Animated.Value(SCREEN_HEIGHT))
 
   useEffect(() => {
     if (visible) {
-      setShowModal(true)
       Animated.spring(translateY, {
         toValue: 0,
         useNativeDriver: true,
         damping: 22,
         stiffness: 220,
       }).start()
-    } else if (showModal) {
-      Animated.timing(translateY, {
-        toValue: SCREEN_HEIGHT,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        setShowModal(false)
-      })
     }
-  }, [visible, translateY, showModal])
+  }, [visible, translateY])
 
   const handleClose = useCallback(() => {
     Animated.timing(translateY, {
@@ -57,15 +49,14 @@ export function ActionSheet({
       duration: 200,
       useNativeDriver: true,
     }).start(() => {
-      setShowModal(false)
       onClose()
     })
   }, [onClose, translateY])
 
-  if (!showModal) return null
+  if (!visible) return null
 
   return (
-    <Modal visible={showModal} transparent animationType="none" onRequestClose={handleClose}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
       <TouchableWithoutFeedback onPress={handleClose}>
         <View style={styles.overlay} />
       </TouchableWithoutFeedback>

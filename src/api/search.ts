@@ -9,7 +9,7 @@ export interface SearchParams {
 
 export async function searchNotes(
   params: SearchParams,
-): Promise<ApiResponse<Array<ApiNote>>> {
+): Promise<ApiResponse<ApiNote[]>> {
   const { data } = await api.get('/search', { params })
   return data
 }

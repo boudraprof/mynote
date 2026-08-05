@@ -1,7 +1,5 @@
 import { Drawer } from 'expo-router/drawer'
 
-import { Text } from "react-native";
-
 import { useTheme } from '@/hooks/use-theme'
 import { DrawerContent } from '@/components/DrawerContent'
 
