@@ -6,7 +6,8 @@ import type { MD3Theme } from 'react-native-paper'
  * Color palette matching the web admin panel's Google Keep-like aesthetic.
  *
  * Light mode: clean white backgrounds, subtle gray borders.
- * Dark mode:  #202124 (Google Keep dark) background.
+ * Dark mode:  warm dark-brown tones matching the app design reference
+ * (Screenshots/): #211C13 background, #2E291E cards.
  */
 export const Colors = {
   light: {
@@ -24,15 +25,15 @@ export const Colors = {
     warning: '#F59E0B',
   },
   dark: {
-    text: '#E8EAED',
-    background: '#202124',
-    backgroundElement: '#303134',
-    backgroundSelected: '#3C4043',
-    textSecondary: '#9AA0A6',
+    text: '#ECE6DA',
+    background: '#211C13',
+    backgroundElement: '#2A251A',
+    backgroundSelected: '#383225',
+    textSecondary: '#A79F8F',
     accent: '#8AB4F8',
-    accentLight: '#2D3748',
-    surface: '#303134',
-    border: '#3C4043',
+    accentLight: '#322B1E',
+    surface: '#2E291E',
+    border: '#373022',
     success: '#10B981',
     danger: '#EF4444',
     warning: '#F59E0B',
