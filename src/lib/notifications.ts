@@ -7,23 +7,20 @@ import {
 } from '@/lib/reminders'
 
 const REMINDER_CHANNEL_ID = 'reminders'
-const isSupported = Platform.OS !== 'web'
 
 // Show reminders as banners/list entries even while the app is foregrounded.
-if (isSupported) {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
-  })
-}
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+})
 
 /** Create the Android notification channel (call once at app start). */
 export async function configureNotifications(): Promise<void> {
-  if (!isSupported || Platform.OS !== 'android') return
+  if (Platform.OS !== 'android') return
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     name: 'Note reminders',
     importance: Notifications.AndroidImportance.HIGH,
@@ -33,7 +30,6 @@ export async function configureNotifications(): Promise<void> {
 
 /** Make sure the OS allows notifications; prompts on first use. */
 export async function ensureReminderPermissions(): Promise<boolean> {
-  if (!isSupported) return false
   const current = await Notifications.getPermissionsAsync()
   if (current.granted) return true
   const requested = await Notifications.requestPermissionsAsync()
@@ -49,7 +45,6 @@ export async function scheduleReminder(
   title: string | null | undefined,
   reminderAt: string,
 ): Promise<void> {
-  if (!isSupported) return
   await cancelReminder(noteId)
   if (!isReminderInFuture(reminderAt)) return
   await Notifications.scheduleNotificationAsync({
@@ -69,7 +64,6 @@ export async function scheduleReminder(
 
 /** Cancel any scheduled notification for the note (cleared/deleted notes). */
 export async function cancelReminder(noteId: string): Promise<void> {
-  if (!isSupported) return
   const scheduled = await Notifications.getAllScheduledNotificationsAsync()
   const stale = scheduled.filter(
     (n) => noteIdFromNotificationData(n.content.data) === noteId,

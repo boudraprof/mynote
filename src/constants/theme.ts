@@ -1,4 +1,3 @@
-import '@/global.css'
 import { Platform } from 'react-native'
 import { MD3DarkTheme, MD3LightTheme } from 'react-native-paper'
 import type { MD3Theme } from 'react-native-paper'

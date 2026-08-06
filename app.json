@@ -24,10 +24,6 @@
       ],
       "package": "com.anonymous.mobileapp"
     },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
     "plugins": [
       [
         "expo-image-picker",

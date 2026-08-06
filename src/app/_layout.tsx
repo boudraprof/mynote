@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Stack, useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
-import { Platform, StyleSheet, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { PaperProvider } from 'react-native-paper'
 
@@ -15,7 +15,6 @@ import { useSyncPendingNotes } from '@/hooks/use-sync'
 import { configureNotifications } from '@/lib/notifications'
 import { noteIdFromNotificationData } from '@/lib/reminders'
 
-import '../global.css'
 
 function DbInitializer({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -38,8 +37,6 @@ function ReminderNotificationHandler() {
   const router = useRouter()
 
   useEffect(() => {
-    if (Platform.OS === 'web') return
-
     const openNote = (response: Notifications.NotificationResponse) => {
       const noteId = noteIdFromNotificationData(
         response.notification.request.content.data,
