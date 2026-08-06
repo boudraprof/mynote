@@ -30,6 +30,11 @@ import { ShareSheet } from '@/components/ShareSheet'
 import { Ionicons } from '@expo/vector-icons'
 import { config } from '@/lib/env'
 import { htmlToPlainText } from '@/lib/html'
+import {
+  cancelReminder,
+  ensureReminderPermissions,
+  scheduleReminder,
+} from '@/lib/notifications'
 import { uploadImage } from '@/api/upload'
 import { useAuth } from '@/providers/auth-provider'
 import { useNoteHistory } from '@/hooks/use-note-history'
@@ -195,11 +200,26 @@ export default function NoteDetailScreen() {
         await updateNote.mutateAsync({ id, reminderAt: value })
         setReminderAt(value)
         setDirty(false)
+
+        // Keep the OS local notification in sync with the stored reminder.
+        if (value) {
+          const granted = await ensureReminderPermissions()
+          if (granted) {
+            await scheduleReminder(id, note?.title, value)
+          } else {
+            Alert.alert(
+              'Reminder saved',
+              'Notifications are disabled for this app. Enable them in your device settings to get reminded.',
+            )
+          }
+        } else {
+          await cancelReminder(id)
+        }
       } catch {
         Alert.alert('Error', 'Failed to update reminder')
       }
     },
-    [id, updateNote],
+    [id, updateNote, note],
   )
 
   const handleDelete = useCallback(() => {
@@ -211,6 +231,7 @@ export default function NoteDetailScreen() {
         onPress: async () => {
           try {
             await updateNote.mutateAsync({ id: id, statusName: 'trash' })
+            void cancelReminder(id)
             router.back()
           } catch {
             Alert.alert('Error', 'Failed to delete note')
@@ -252,6 +273,7 @@ export default function NoteDetailScreen() {
         onPress: async () => {
           try {
             await deleteNote.mutateAsync(id)
+            void cancelReminder(id)
             router.back()
           } catch {
             Alert.alert('Error', 'Failed to delete note')

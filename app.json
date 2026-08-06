@@ -19,7 +19,8 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "package": "com.anonymous.mobileapp"
     },
@@ -61,7 +62,14 @@
       ],
       "expo-secure-store",
       "expo-image",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#1A73E8"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
