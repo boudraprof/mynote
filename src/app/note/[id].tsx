@@ -473,7 +473,10 @@ export default function NoteDetailScreen() {
       )}
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.six }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.six },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         {/*{!isTrash && (
@@ -518,7 +521,7 @@ export default function NoteDetailScreen() {
               setContent(v)
               markDirty()
             }}
-            placeholder="Start writing..."
+            placeholder="Note"
             placeholderTextColor={secondaryColor}
             multiline
             textAlignVertical="top"
@@ -667,25 +670,25 @@ export default function NoteDetailScreen() {
             </View>
           </>
         )}
-
-        {/* ── Save status ─────────────────────────────── */}
-        {saveStatus !== 'idle' && (
-          <View style={styles.saveStatus}>
-            {saveStatus === 'saving' ? (
-              <ActivityIndicator size="small" color={secondaryColor} />
-            ) : (
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={16}
-                color={theme.success}
-              />
-            )}
-            <Text style={[styles.saveStatusText, { color: secondaryColor }]}>
-              {saveStatus === 'saving' ? 'Saving…' : 'Saved'}
-            </Text>
-          </View>
-        )}
       </ScrollView>
+
+      {/* ── Save status ─────────────────────────────── */}
+      {saveStatus !== 'idle' && (
+        <View style={styles.saveStatus}>
+          {saveStatus === 'saving' ? (
+            <ActivityIndicator size="small" color={secondaryColor} />
+          ) : (
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={16}
+              color={theme.success}
+            />
+          )}
+          <Text style={[styles.saveStatusText, { color: secondaryColor }]}>
+            {saveStatus === 'saving' ? 'Saving…' : 'Saved'}
+          </Text>
+        </View>
+      )}
 
       {/* Editor Footer Actions */}
       {!isTrash && (
@@ -878,6 +881,7 @@ export default function NoteDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  scrollContent: { padding: Spacing.four, gap: Spacing.three },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   headerBtn: {
     paddingHorizontal: Spacing.two,
@@ -896,7 +900,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    marginHorizontal: Spacing.four,
     marginTop: Spacing.two,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -907,19 +910,16 @@ const styles = StyleSheet.create({
   titleInput: {
     fontSize: 24,
     fontWeight: '700',
-    paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
   },
   contentInput: {
     fontSize: 16,
     lineHeight: 24,
-    paddingHorizontal: Spacing.four,
     minHeight: 250,
   },
   editToolbar: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     gap: Spacing.two,
   },
@@ -932,7 +932,6 @@ const styles = StyleSheet.create({
   },
   toolBtnText: { fontSize: 13, fontWeight: '600' },
   section: {
-    paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
   },
 
