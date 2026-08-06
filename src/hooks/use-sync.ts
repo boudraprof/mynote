@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNetwork } from '@/hooks/use-network'
+import { useAuth } from '@/providers/auth-provider'
 import {
   getPendingSyncOperations,
   mergeServerNotes,
   removeSyncOperation,
   markNoteSynced,
+  rekeyLocalNote,
 } from '@/lib/offline-notes'
 import { retryDelayMs } from '@/lib/sync-retry'
 import { createNote, updateNote, deleteNote, getNotes } from '@/api/notes'
@@ -80,6 +82,14 @@ function scheduleRetry() {
   setActivity({ retryInMs: delay })
 }
 
+/** Extract the HTTP status from a failed request, if there is one. */
+function statusOf(e: unknown): number | undefined {
+  if (e && typeof e === 'object' && 'response' in e) {
+    return (e as { response?: { status?: number } }).response?.status
+  }
+  return undefined
+}
+
 /**
  * Push locally-queued operations to the server, then pull latest notes.
  *
@@ -106,9 +116,17 @@ export async function syncPendingNotes() {
       for (const op of operations) {
         try {
           const data = op.data ? JSON.parse(op.data) : {}
+          let syncedNoteId = op.noteId
 
           if (op.operation === 'create') {
-            await createNote(data)
+            const res = await createNote(data)
+            // The server assigns its own id (gen_random_uuid) and ignores the
+            // client-generated one. Rekey the local note so subsequent
+            // update/delete ops target the real server id instead of 404ing.
+            if (res.id && res.id !== op.noteId) {
+              await rekeyLocalNote(op.noteId, res.id)
+              syncedNoteId = res.id
+            }
           } else if (op.operation === 'update') {
             await updateNote(data)
           } else if (op.operation === 'delete') {
@@ -116,8 +134,18 @@ export async function syncPendingNotes() {
           }
 
           await removeSyncOperation(op.id)
-          await markNoteSynced(op.noteId)
+          await markNoteSynced(syncedNoteId)
         } catch (e) {
+          if (statusOf(e) === 404) {
+            // The note doesn't exist on the server (deleted elsewhere, or a
+            // legacy id from before create-rekey). Drop the op and keep the
+            // local copy as the source of truth.
+            await removeSyncOperation(op.id)
+            if (op.operation !== 'delete') {
+              await markNoteSynced(op.noteId)
+            }
+            continue
+          }
           failures += 1
           console.warn(`Sync failed for ${op.operation} ${op.noteId}:`, e)
         }
@@ -173,11 +201,18 @@ export function useSyncStatus() {
 export function useSyncPendingNotes() {
   const isOnline = useNetwork()
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const syncing = useRef(false)
 
   useEffect(() => {
     if (!isOnline) {
       // Stop futile retries while offline.
+      cancelPendingRetry()
+      return
+    }
+    if (!user) {
+      // Never sync while logged out — the server rejects us with 401 and the
+      // retry loop would spin forever. The effect re-runs once auth resolves.
       cancelPendingRetry()
       return
     }
@@ -194,5 +229,5 @@ export function useSyncPendingNotes() {
         syncing.current = false
       }
     })()
-  }, [isOnline, queryClient])
+  }, [isOnline, queryClient, user])
 }

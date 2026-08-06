@@ -27,6 +27,8 @@ export interface ApiResponse<T> {
 export interface ApiResult {
   error: boolean
   message: string
+  /** Server-assigned id, present on create responses. */
+  id?: string
 }
 
 export interface UploadResult {

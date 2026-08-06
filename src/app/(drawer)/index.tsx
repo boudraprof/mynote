@@ -532,7 +532,10 @@ export default function HomeScreen() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={async () => {
-                await pullServerNotes()
+                // Server pull needs a session; skip silently when logged out.
+                if (user) {
+                  await pullServerNotes()
+                }
                 refetch()
               }}
             />

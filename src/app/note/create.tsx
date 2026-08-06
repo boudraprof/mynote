@@ -29,6 +29,7 @@ import { config } from '@/lib/env'
 import { uploadImage } from '@/api/upload'
 import { createLocalNote, updateLocalNote } from '@/lib/offline-notes'
 import { useNetwork } from '@/hooks/use-network'
+import { useAuth } from '@/providers/auth-provider'
 import { syncPendingNotes } from '@/hooks/use-sync'
 
 const paletteColorValues: Record<string, string> = {
@@ -60,8 +61,14 @@ export default function CreateNoteScreen() {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const isOnline = useNetwork()
-  // Latest-value ref so the autosave debounce isn't restarted on connectivity changes
+  // Latest-value refs so the autosave debounce isn't restarted on
+  // connectivity or auth changes.
+  const { user } = useAuth()
+  const userRef = useRef(user)
   const isOnlineRef = useRef(isOnline)
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
   useEffect(() => {
     isOnlineRef.current = isOnline
   }, [isOnline])
@@ -116,7 +123,7 @@ export default function CreateNoteScreen() {
         }
         setSaveStatus('saved')
         // Push the locally-saved note to the server when online
-        if (isOnlineRef.current) {
+        if (isOnlineRef.current && userRef.current) {
           syncPendingNotes().catch((e) => console.warn('Auto-sync failed:', e))
         }
       } catch {

@@ -228,6 +228,24 @@ export async function removeSyncOperation(id: string) {
   await db.delete(syncQueue).where(eq(syncQueue.id, id))
 }
 
+/**
+ * Re-point a locally-created note (and its pending ops) at the id the server
+ * assigned when the create op was synced. The server ignores client-generated
+ * ids and mints its own, so without this later update/delete ops would target
+ * a note id the server has never seen (404 forever).
+ */
+export async function rekeyLocalNote(oldId: string, newId: string) {
+  const db = await getDb()
+  await db
+    .update(syncQueue)
+    .set({ noteId: newId })
+    .where(eq(syncQueue.noteId, oldId))
+  await db
+    .update(localNotes)
+    .set({ id: newId })
+    .where(eq(localNotes.id, oldId))
+}
+
 export async function markNoteSynced(noteId: string) {
   const db = await getDb()
   await db
