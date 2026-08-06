@@ -1,5 +1,12 @@
 import { Ionicons } from '@expo/vector-icons'
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import {
+  Image,
+  ImageSourcePropType,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
 import type { ApiNote } from '@/api/types'
 import { Radius, Shadow, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/use-theme'
@@ -20,13 +27,16 @@ const paletteColorValues: Record<string, string> = {
   chalk: '#f5f5dc',
 }
 
-const backgroundImages: Record<string, string> = {
-  'bg-grid': '/backgrounds/bg-grid.png',
-  'bg-dots': '/backgrounds/bg-dots.png',
-  'bg-waves': '/backgrounds/bg-waves.png',
-  'bg-floral': '/backgrounds/bg-floral.png',
-  'bg-geometric': '/backgrounds/bg-geometric.png',
-  'bg-marble': '/backgrounds/bg-marble.png',
+const backgroundImages: Record<string, ImageSourcePropType> = {
+  celebration_dark_thumb_0715: require('../../assets/backgrounds/celebration_dark_thumb_0715.png'),
+  video_dark_thumb_0615: require('../../assets/backgrounds/video_dark_thumb_0615.png'),
+  travel_dark_thumb_0615: require('../../assets/backgrounds/travel_dark_thumb_0615.png'),
+  places_dark_thumb_0615: require('../../assets/backgrounds/places_dark_thumb_0615.png'),
+  notes_dark_thumb_0715: require('../../assets/backgrounds/notes_dark_thumb_0715.png'),
+  recipe_dark_thumb_0615: require('../../assets/backgrounds/recipe_dark_thumb_0615.png'),
+  music_dark_thumb_0615: require('../../assets/backgrounds/music_dark_thumb_0615.png'),
+  food_dark_thumb_0615: require('../../assets/backgrounds/food_dark_thumb_0615.png'),
+  grocery_dark_thumb_0615: require('../../assets/backgrounds/grocery_dark_thumb_0615.png'),
 }
 
 interface NoteCardProps {
@@ -44,7 +54,10 @@ export function NoteCard({
 }: NoteCardProps) {
   const theme = useTheme()
 
-  const isImageBg = note.palette && backgroundImages[note.palette]
+  const bgName = note.palette
+    ? note.palette.split('/').pop()?.replace(/\.svg$/, '')
+    : null
+  const isImageBg = bgName ? backgroundImages[bgName] !== undefined : false
   const paletteBg =
     note.palette && !isImageBg ? paletteColorValues[note.palette] : null
   const cardBg = paletteBg || theme.surface
@@ -88,9 +101,7 @@ export function NoteCard({
       : `${config.apiUrl}${note.image}`
     : null
 
-  const bgImageUri = isImageBg
-    ? `${config.apiUrl}${backgroundImages[note.palette!]}`
-    : null
+  const bgSource = isImageBg && bgName ? backgroundImages[bgName] : null
 
   return (
     <Pressable
@@ -103,9 +114,9 @@ export function NoteCard({
       onPress={onPress}
       onLongPress={onLongPress}
     >
-      {bgImageUri && (
+      {bgSource && (
         <Image
-          source={{ uri: bgImageUri }}
+          source={bgSource}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
