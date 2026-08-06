@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ImageSourcePropType,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -25,7 +26,6 @@ import { ImageAttachments } from '@/components/ImageAttachments'
 import { DrawingEditor } from '@/components/DrawingEditor'
 import { ActionSheet } from '@/components/ActionSheet'
 import { Ionicons } from '@expo/vector-icons'
-import { config } from '@/lib/env'
 import { uploadImage } from '@/api/upload'
 import { createLocalNote, updateLocalNote } from '@/lib/offline-notes'
 import { useNetwork } from '@/hooks/use-network'
@@ -46,13 +46,16 @@ const paletteColorValues: Record<string, string> = {
   chalk: '#f5f5dc',
 }
 
-const backgroundImages: Record<string, string> = {
-  'bg-grid': '/backgrounds/bg-grid.png',
-  'bg-dots': '/backgrounds/bg-dots.png',
-  'bg-waves': '/backgrounds/bg-waves.png',
-  'bg-floral': '/backgrounds/bg-floral.png',
-  'bg-geometric': '/backgrounds/bg-geometric.png',
-  'bg-marble': '/backgrounds/bg-marble.png',
+const backgroundImages: Record<string, ImageSourcePropType> = {
+  celebration_dark_thumb_0715: require('../../../assets/backgrounds/celebration_dark_thumb_0715.png'),
+  video_dark_thumb_0615: require('../../../assets/backgrounds/video_dark_thumb_0615.png'),
+  travel_dark_thumb_0615: require('../../../assets/backgrounds/travel_dark_thumb_0615.png'),
+  places_dark_thumb_0615: require('../../../assets/backgrounds/places_dark_thumb_0615.png'),
+  notes_dark_thumb_0715: require('../../../assets/backgrounds/notes_dark_thumb_0715.png'),
+  recipe_dark_thumb_0615: require('../../../assets/backgrounds/recipe_dark_thumb_0615.png'),
+  music_dark_thumb_0615: require('../../../assets/backgrounds/music_dark_thumb_0615.png'),
+  food_dark_thumb_0615: require('../../../assets/backgrounds/food_dark_thumb_0615.png'),
+  grocery_dark_thumb_0615: require('../../../assets/backgrounds/grocery_dark_thumb_0615.png'),
 }
 
 type ActiveSheet = 'add' | 'theme' | null
@@ -228,15 +231,14 @@ export default function CreateNoteScreen() {
     }
   }, [])
 
-  const isImageBg = palette && backgroundImages[palette]
+  const bgName = palette ? palette.split('/').pop()?.replace(/\.svg$/, '') : null
+  const isImageBg = bgName ? backgroundImages[bgName] !== undefined : false
   const paletteBg = palette && !isImageBg ? paletteColorValues[palette] : null
   const containerBg = paletteBg || theme.background
   const textColor = paletteBg || isImageBg ? '#1A1A1A' : theme.text
   const secondaryColor = paletteBg || isImageBg ? '#444' : theme.textSecondary
 
-  const bgImageUri = isImageBg
-    ? `${config.apiUrl}${backgroundImages[palette!]}`
-    : null
+  const bgSource = isImageBg && bgName ? backgroundImages[bgName] : null
 
   return (
     <KeyboardAvoidingView
@@ -254,9 +256,9 @@ export default function CreateNoteScreen() {
         }}
       />
 
-      {bgImageUri && (
+      {bgSource && (
         <Image
-          source={{ uri: bgImageUri }}
+          source={bgSource}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />

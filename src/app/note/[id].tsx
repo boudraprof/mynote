@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ImageSourcePropType,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -28,7 +29,6 @@ import { DrawingEditor } from '@/components/DrawingEditor'
 import { ReminderSheet } from '@/components/ReminderSheet'
 import { ShareSheet } from '@/components/ShareSheet'
 import { Ionicons } from '@expo/vector-icons'
-import { config } from '@/lib/env'
 import { htmlToPlainText } from '@/lib/html'
 import {
   cancelReminder,
@@ -53,13 +53,16 @@ const paletteColorValues: Record<string, string> = {
   chalk: '#f5f5dc',
 }
 
-const backgroundImages: Record<string, string> = {
-  'bg-grid': '/backgrounds/bg-grid.png',
-  'bg-dots': '/backgrounds/bg-dots.png',
-  'bg-waves': '/backgrounds/bg-waves.png',
-  'bg-floral': '/backgrounds/bg-floral.png',
-  'bg-geometric': '/backgrounds/bg-geometric.png',
-  'bg-marble': '/backgrounds/bg-marble.png',
+const backgroundImages: Record<string, ImageSourcePropType> = {
+  celebration_dark_thumb_0715: require('../../../assets/backgrounds/celebration_dark_thumb_0715.png'),
+  video_dark_thumb_0615: require('../../../assets/backgrounds/video_dark_thumb_0615.png'),
+  travel_dark_thumb_0615: require('../../../assets/backgrounds/travel_dark_thumb_0615.png'),
+  places_dark_thumb_0615: require('../../../assets/backgrounds/places_dark_thumb_0615.png'),
+  notes_dark_thumb_0715: require('../../../assets/backgrounds/notes_dark_thumb_0715.png'),
+  recipe_dark_thumb_0615: require('../../../assets/backgrounds/recipe_dark_thumb_0615.png'),
+  music_dark_thumb_0615: require('../../../assets/backgrounds/music_dark_thumb_0615.png'),
+  food_dark_thumb_0615: require('../../../assets/backgrounds/food_dark_thumb_0615.png'),
+  grocery_dark_thumb_0615: require('../../../assets/backgrounds/grocery_dark_thumb_0615.png'),
 }
 
 export default function NoteDetailScreen() {
@@ -87,6 +90,11 @@ export default function NoteDetailScreen() {
   const [shareVisible, setShareVisible] = useState(false)
   const [historyVisible, setHistoryVisible] = useState(false)
   const originalContentRef = useRef<string | null>(null)
+  const seededIdRef = useRef<string | null>(null)
+  const lastSavedRef = useRef<string>('')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
+    'idle',
+  )
 
   const parseItems = (raw: string): ChecklistItem[] => {
     try {
@@ -97,9 +105,11 @@ export default function NoteDetailScreen() {
   }
 
   useEffect(() => {
-    if (note) {
-      // Seed the editor from the fetched note once it arrives.
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- seed editor on load
+    // Seed the editor from the fetched note once it arrives. Guarded by
+    // note id so refetches after an auto-save (same id) don't clobber
+    // whatever the user is currently typing.
+    if (note && seededIdRef.current !== note.id) {
+      seededIdRef.current = note.id
       setTitle(note.title ?? '')
       // The web app stores rich-text HTML; the mobile editor is plain text,
       // so normalize for editing but remember the original so an untouched
@@ -114,37 +124,87 @@ export default function NoteDetailScreen() {
       setPalette(note.palette)
       setImage(note.image)
       setReminderAt(note.reminderAt ?? null)
+      // The freshly seeded state is by definition already saved, so the
+      // auto-save effect below won't fire until the user changes something.
+      // Field order must match buildPayload() so the snapshot comparison
+      // works.
+      lastSavedRef.current = JSON.stringify({
+        id,
+        title: note.title ?? '',
+        content: note.content,
+        labels: note.labels ?? [],
+        checklist: note.checklist ?? false,
+        checklistItems: note.checklistItems ?? null,
+        palette: note.palette,
+        image: note.image,
+        reminderAt: note.reminderAt ?? null,
+      })
     }
-  }, [note])
+  }, [note, id])
 
   const markDirty = useCallback(() => setDirty(true), [])
+
+  // Shared payload builder for manual save, auto-save and history.
+  const buildPayload = useCallback(
+    (noteId: string) => ({
+      id: noteId,
+      title,
+      content: isChecklist
+        ? null
+        : content === htmlToPlainText(originalContentRef.current)
+          ? originalContentRef.current
+          : content,
+      labels,
+      checklist: isChecklist,
+      checklistItems:
+        isChecklist && checklistItems.length > 0
+          ? JSON.stringify(checklistItems)
+          : null,
+      palette,
+      image,
+      reminderAt,
+    }),
+    [
+      title,
+      content,
+      labels,
+      isChecklist,
+      checklistItems,
+      palette,
+      image,
+      reminderAt,
+    ],
+  )
+
+  // Auto-save: debounce editor changes and persist 800ms after the user
+  // stops typing. useUpdateNote is local-first, so this also works offline.
+  useEffect(() => {
+    if (!id || !seededIdRef.current) return
+    const payload = buildPayload(id)
+    const key = JSON.stringify(payload)
+    if (key === lastSavedRef.current) return
+    setSaveStatus('saving')
+    const timer = setTimeout(async () => {
+      try {
+        await updateNote.mutateAsync(payload)
+        lastSavedRef.current = key
+        setSaveStatus('saved')
+        setDirty(false)
+      } catch {
+        // Keep the unsaved state; the next keystroke retries.
+        setSaveStatus('idle')
+      }
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [id, buildPayload, updateNote])
 
   const handleSave = useCallback(async () => {
     if (!id || saving) return
     setSaving(true)
     try {
-      // If the user never touched the text, keep the original content
-      // (possibly rich-text HTML from the web app) instead of replacing it
-      // with the stripped plain-text version.
-      const contentToSave =
-        content === htmlToPlainText(originalContentRef.current)
-          ? originalContentRef.current
-          : content
-      const payload = {
-        id,
-        title,
-        content: isChecklist ? null : contentToSave,
-        labels,
-        checklist: isChecklist,
-        checklistItems:
-          isChecklist && checklistItems.length > 0
-            ? JSON.stringify(checklistItems)
-            : null,
-        palette,
-        image,
-        reminderAt,
-      }
+      const payload = buildPayload(id)
       await updateNote.mutateAsync(payload)
+      lastSavedRef.current = JSON.stringify(payload)
       // Snapshot this version locally for history
       await history.saveVersion(id, payload, 'update')
       setDirty(false)
@@ -154,20 +214,7 @@ export default function NoteDetailScreen() {
     } finally {
       setSaving(false)
     }
-  }, [
-    id,
-    title,
-    content,
-    labels,
-    isChecklist,
-    checklistItems,
-    palette,
-    image,
-    reminderAt,
-    updateNote,
-    history,
-    saving,
-  ])
+  }, [id, saving, buildPayload, updateNote, history])
 
   const saveDrawing = useCallback(
     async (uri: string) => {
@@ -322,7 +369,9 @@ export default function NoteDetailScreen() {
           style={({ pressed }) => [
             { opacity: pressed ? 0.6 : 1, marginTop: Spacing.three },
           ]}
-          onPress={() => router.back()}
+          onPress={() =>{
+            router.back()
+          }}
         >
           <Text style={{ color: theme.textSecondary, fontSize: 15 }}>
             Go back
@@ -336,15 +385,14 @@ export default function NoteDetailScreen() {
   const isArchive = note.StatusName === 'archived'
   const isOwner = user?.id === note.userId
 
-  const isImageBg = palette && backgroundImages[palette]
+  const bgName = palette ? palette.split('/').pop()?.replace(/\.svg$/, '') : null
+  const isImageBg = bgName ? backgroundImages[bgName] !== undefined : false
   const paletteBg = palette && !isImageBg ? paletteColorValues[palette] : null
   const containerBg = paletteBg || theme.background
   const textColor = paletteBg || isImageBg ? '#1A1A1A' : theme.text
   const secondaryColor = paletteBg || isImageBg ? '#444' : theme.textSecondary
 
-  const bgImageUri = isImageBg
-    ? `${config.apiUrl}${backgroundImages[palette!]}`
-    : null
+  const bgSource = isImageBg && bgName ? backgroundImages[bgName] : null
 
   return (
     <KeyboardAvoidingView
@@ -357,11 +405,12 @@ export default function NoteDetailScreen() {
           headerStyle: { backgroundColor: containerBg },
           headerTintColor: textColor,
           headerShadowVisible: false,
+          headerShown: true,
           headerLeft: () => (
             <Pressable
               onPress={() => {
                 if (dirty) {
-                  Alert.alert('Discard changes?', 'You have unsaved changes', [
+                  Alert.alert('Discard changes?', 'Unsaved edits will be discarded', [
                     { text: 'Cancel', style: 'cancel' },
                     {
                       text: 'Discard',
@@ -415,9 +464,9 @@ export default function NoteDetailScreen() {
         }}
       />
 
-      {bgImageUri && (
+      {bgSource && (
         <Image
-          source={{ uri: bgImageUri }}
+          source={bgSource}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
@@ -427,7 +476,7 @@ export default function NoteDetailScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.six }}
         keyboardShouldPersistTaps="handled"
       >
-        {!isTrash && (
+        {/*{!isTrash && (
           <ImageAttachments
             image={image}
             onChange={(url) => {
@@ -435,7 +484,7 @@ export default function NoteDetailScreen() {
               markDirty()
             }}
           />
-        )}
+        )}*/}
 
         {reminderAt && !isTrash && (
           <Pressable
@@ -617,6 +666,24 @@ export default function NoteDetailScreen() {
               />
             </View>
           </>
+        )}
+
+        {/* ── Save status ─────────────────────────────── */}
+        {saveStatus !== 'idle' && (
+          <View style={styles.saveStatus}>
+            {saveStatus === 'saving' ? (
+              <ActivityIndicator size="small" color={secondaryColor} />
+            ) : (
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={16}
+                color={theme.success}
+              />
+            )}
+            <Text style={[styles.saveStatusText, { color: secondaryColor }]}>
+              {saveStatus === 'saving' ? 'Saving…' : 'Saved'}
+            </Text>
+          </View>
         )}
       </ScrollView>
 
@@ -867,6 +934,19 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
+  },
+
+  // ── Save status ─────────────────────────────────────
+  saveStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: Spacing.one,
+  },
+  saveStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   bottomBar: {
     borderTopWidth: 1,
