@@ -10,10 +10,8 @@ import { AuthProvider } from '@/providers/auth-provider'
 import { ThemeProvider, useThemePreference } from '@/providers/theme-provider'
 import { Colors, paperTheme } from '@/constants/theme'
 import { getDb } from '@/db'
-import * as Notifications from 'expo-notifications'
 import { useSyncPendingNotes } from '@/hooks/use-sync'
-import { configureNotifications } from '@/lib/notifications'
-import { noteIdFromNotificationData } from '@/lib/reminders'
+import { configureNotifications, subscribeToReminderResponses } from '@/lib/notifications'
 
 
 function DbInitializer({ children }: { children: React.ReactNode }) {
@@ -37,24 +35,9 @@ function ReminderNotificationHandler() {
   const router = useRouter()
 
   useEffect(() => {
-    const openNote = (response: Notifications.NotificationResponse) => {
-      const noteId = noteIdFromNotificationData(
-        response.notification.request.content.data,
-      )
-      if (noteId) {
-        router.push(`/note/${noteId}`)
-      }
-    }
-
-    // Cold start: the app was launched by tapping a notification.
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) openNote(response)
+    return subscribeToReminderResponses((noteId) => {
+      router.push(`/note/${noteId}`)
     })
-
-    // Warm start: tapped while the app was already running.
-    const subscription =
-      Notifications.addNotificationResponseReceivedListener(openNote)
-    return () => subscription.remove()
   }, [router])
 
   return null
