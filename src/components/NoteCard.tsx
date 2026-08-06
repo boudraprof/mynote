@@ -33,15 +33,24 @@ interface NoteCardProps {
   note: ApiNote
   onPress: () => void
   onLongPress?: () => void
+  selected?: boolean
 }
 
-export function NoteCard({ note, onPress, onLongPress }: NoteCardProps) {
+export function NoteCard({
+  note,
+  onPress,
+  onLongPress,
+  selected = false,
+}: NoteCardProps) {
   const theme = useTheme()
 
   const isImageBg = note.palette && backgroundImages[note.palette]
   const paletteBg =
     note.palette && !isImageBg ? paletteColorValues[note.palette] : null
   const cardBg = paletteBg || theme.surface
+  const effectiveBg =
+    selected && !paletteBg && !isImageBg ? theme.accentLight : cardBg
+  const borderColor = selected ? theme.accent : theme.border
   const textColor = paletteBg || isImageBg ? '#1A1A1A' : theme.text
   const secondaryColor = paletteBg || isImageBg ? '#444' : theme.textSecondary
 
@@ -87,9 +96,9 @@ export function NoteCard({ note, onPress, onLongPress }: NoteCardProps) {
     <Pressable
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: cardBg, opacity: pressed ? 0.88 : 1 },
+        { backgroundColor: effectiveBg, opacity: pressed ? 0.88 : 1 },
         !paletteBg && !isImageBg && Shadow.sm,
-        { borderColor: theme.border },
+        { borderColor },
       ]}
       onPress={onPress}
       onLongPress={onLongPress}
@@ -100,6 +109,12 @@ export function NoteCard({ note, onPress, onLongPress }: NoteCardProps) {
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
+      )}
+
+      {selected && (
+        <View style={[styles.selectedBadge, { backgroundColor: theme.accent }]}> 
+          <Ionicons name="checkmark" size={12} color="#fff" />
+        </View>
       )}
 
       {imageUri && (
@@ -114,7 +129,7 @@ export function NoteCard({ note, onPress, onLongPress }: NoteCardProps) {
         <Text style={[styles.title, { color: textColor }]} numberOfLines={2}>
           {note.title || 'Untitled'}
         </Text>
-        {note.pinned && (
+        {note.pinned && !selected && (
           <View
             style={[styles.pinBadge, { backgroundColor: 'rgba(0,0,0,0.07)' }]}
           >
@@ -254,6 +269,17 @@ const styles = StyleSheet.create({
     height: 22,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  selectedBadge: {
+    position: 'absolute',
+    top: Spacing.two,
+    right: Spacing.two,
+    width: 20,
+    height: 20,
+    borderRadius: Radius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
   },
   content: {
     fontSize: 13,

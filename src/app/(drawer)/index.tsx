@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+} from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +21,7 @@ import {
 } from 'react-native'
 import { router, useNavigation, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Menu } from 'react-native-paper'
 
 import type { ApiNote } from '@/api/types'
 import {
@@ -49,6 +57,9 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'title'>('newest')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [selectionMenuOpen, setSelectionMenuOpen] = useState(false)
+  const selectionMode = selectedIds.length > 0
 
   useEffect(() => {
     // Keep tab/label state in sync when the drawer navigates here with new
@@ -56,6 +67,9 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional param sync
     if (params.tab) setActiveTab(params.tab)
     if (params.label) setSelectedLabel(params.label)
+    // Exit selection mode whenever the view changes.
+    setSelectedIds([])
+    setSelectionMenuOpen(false)
   }, [params.tab, params.label])
   const searchRef = useRef<TextInput>(null)
 
@@ -98,6 +112,11 @@ export default function HomeScreen() {
     }
   }, [notesList, sortBy])
 
+  const selectedNotes = useMemo(
+    () => sortedNotes.filter((n) => selectedIds.includes(n.id)),
+    [sortedNotes, selectedIds],
+  )
+
   // Split into pinned and unpinned if in active notes view
   const showPinnedSection = !activeTab && !selectedLabel && !searchQuery
   const pinnedNotes = showPinnedSection ? sortedNotes.filter((n) => n.pinned) : []
@@ -127,136 +146,165 @@ export default function HomeScreen() {
     )
   }, [refetch])
 
-  const handleLongPress = useCallback(
-    (note: ApiNote) => {
-      const isTrash = note.StatusName === 'trash' || activeTab === 'trash'
-      const isArchive =
-        note.StatusName === 'archived' || activeTab === 'archived'
+  const toggleSelect = useCallback((note: ApiNote) => {
+    setSelectedIds((prev) =>
+      prev.includes(note.id)
+        ? prev.filter((id) => id !== note.id)
+        : [...prev, note.id],
+    )
+  }, [])
 
-      const options: {
-        text: string
-        style?: 'destructive' | 'cancel'
-        onPress: () => void
-      }[] = [
+  const clearSelection = useCallback(() => {
+    setSelectedIds([])
+    setSelectionMenuOpen(false)
+  }, [])
+
+  const handleLongPress = useCallback((note: ApiNote) => {
+    // Long-press enters selection mode (Keep-style), replacing the old Alert menu.
+    setSelectedIds([note.id])
+  }, [])
+
+  const runForSelected = useCallback(
+    async (action: (note: ApiNote) => Promise<unknown>, errorMsg: string) => {
+      try {
+        for (const note of selectedNotes) {
+          await action(note)
+        }
+        clearSelection()
+      } catch {
+        Alert.alert('Error', errorMsg)
+      }
+    },
+    [selectedNotes, clearSelection],
+  )
+
+  const pinSelected = useCallback(() => {
+    const shouldPin = selectedNotes.some((n) => !n.pinned)
+    void runForSelected(
+      (note) => updateNote.mutateAsync({ id: note.id, pinned: shouldPin }),
+      'Failed to update pin',
+    )
+  }, [selectedNotes, runForSelected, updateNote])
+
+  const copySelected = useCallback(() => {
+    void runForSelected(
+      (note) =>
+        copyNote.mutateAsync({
+          title: note.title,
+          content: note.content,
+          checklist: note.checklist,
+          checklistItems: note.checklistItems,
+          palette: note.palette,
+          image: note.image,
+          labels: note.labels,
+        }),
+      'Failed to copy note',
+    )
+  }, [runForSelected, copyNote])
+
+  const archiveSelected = useCallback(() => {
+    void runForSelected(
+      (note) => updateNote.mutateAsync({ id: note.id, statusName: 'archived' }),
+      'Failed to archive note',
+    )
+  }, [runForSelected, updateNote])
+
+  const trashSelected = useCallback(() => {
+    void runForSelected(
+      (note) => updateNote.mutateAsync({ id: note.id, statusName: 'trash' }),
+      'Failed to move note to trash',
+    )
+  }, [runForSelected, updateNote])
+
+  const restoreSelected = useCallback(() => {
+    void runForSelected(
+      (note) => updateNote.mutateAsync({ id: note.id, statusName: 'active' }),
+      'Failed to restore note',
+    )
+  }, [runForSelected, updateNote])
+
+  const deleteForeverSelected = useCallback(() => {
+    void runForSelected(
+      (note) => deleteNote.mutateAsync(note.id),
+      'Failed to delete note',
+    )
+  }, [runForSelected, deleteNote])
+
+  const editSelected = useCallback(() => {
+    if (selectedNotes.length !== 1) return
+    const note = selectedNotes[0]
+    clearSelection()
+    router.push(`/note/${note.id}`)
+  }, [selectedNotes, clearSelection])
+
+  type ToolbarAction = {
+    icon: ComponentProps<typeof Ionicons>['name']
+    label: string
+    color?: string
+    onPress: () => void
+  }
+
+  const isTrashView = activeTab === 'trash'
+  const isArchiveView = activeTab === 'archived'
+  const allPinned =
+    selectedNotes.length > 0 && selectedNotes.every((n) => n.pinned)
+
+  const toolbarButtons: ToolbarAction[] = isTrashView
+    ? [
         {
-          text: 'Edit',
-          onPress: () => router.push(`/note/${note.id}`),
+          icon: 'arrow-undo-outline',
+          label: 'Restore',
+          onPress: restoreSelected,
+        },
+        { icon: 'copy-outline', label: 'Copy', onPress: copySelected },
+        {
+          icon: 'trash-outline',
+          label: 'Delete forever',
+          color: theme.danger,
+          onPress: deleteForeverSelected,
         },
       ]
+    : isArchiveView
+      ? [
+          {
+            icon: 'arrow-undo-outline',
+            label: 'Restore',
+            onPress: restoreSelected,
+          },
+          { icon: 'copy-outline', label: 'Copy', onPress: copySelected },
+          {
+            icon: 'trash-outline',
+            label: 'Move to trash',
+            color: theme.danger,
+            onPress: trashSelected,
+          },
+        ]
+      : [
+          {
+            icon: allPinned ? 'pin' : 'pin-outline',
+            label: allPinned ? 'Unpin' : 'Pin',
+            onPress: pinSelected,
+          },
+          { icon: 'copy-outline', label: 'Copy', onPress: copySelected },
+          { icon: 'archive-outline', label: 'Archive', onPress: archiveSelected },
+          {
+            icon: 'trash-outline',
+            label: 'Move to trash',
+            color: theme.danger,
+            onPress: trashSelected,
+          },
+        ]
 
-      if (isTrash) {
-        options.push({
-          text: 'Restore',
-          onPress: async () => {
-            try {
-              await updateNote.mutateAsync({
-                id: note.id,
-                statusName: 'active',
-              })
-            } catch {
-              Alert.alert('Error', 'Failed to restore note')
-            }
-          },
-        })
-        options.push({
-          text: 'Delete Forever',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteNote.mutateAsync(note.id)
-            } catch {
-              Alert.alert('Error', 'Failed to delete note')
-            }
-          },
-        })
-      } else if (isArchive) {
-        options.push({
-          text: 'Restore to Notes',
-          onPress: async () => {
-            try {
-              await updateNote.mutateAsync({
-                id: note.id,
-                statusName: 'active',
-              })
-            } catch {
-              Alert.alert('Error', 'Failed to restore note')
-            }
-          },
-        })
-        options.push({
-          text: 'Move to Trash',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await updateNote.mutateAsync({ id: note.id, statusName: 'trash' })
-            } catch {
-              Alert.alert('Error', 'Failed to trash note')
-            }
-          },
-        })
-      } else {
-        options.push({
-          text: note.pinned ? 'Unpin Note' : 'Pin Note',
-          onPress: async () => {
-            try {
-              await updateNote.mutateAsync({
-                id: note.id,
-                pinned: !note.pinned,
-              })
-            } catch {
-              Alert.alert('Error', 'Failed to toggle pin')
-            }
-          },
-        })
-        options.push({
-          text: 'Archive',
-          onPress: async () => {
-            try {
-              await updateNote.mutateAsync({
-                id: note.id,
-                statusName: 'archived',
-              })
-            } catch {
-              Alert.alert('Error', 'Failed to archive note')
-            }
-          },
-        })
-        options.push({
-          text: 'Copy',
-          onPress: async () => {
-            try {
-              await copyNote.mutateAsync({
-                title: note.title,
-                content: note.content,
-                checklist: note.checklist,
-                checklistItems: note.checklistItems,
-                palette: note.palette,
-                image: note.image,
-                labels: note.labels,
-              })
-            } catch {
-              Alert.alert('Error', 'Failed to copy note')
-            }
-          },
-        })
-        options.push({
-          text: 'Move to Trash',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await updateNote.mutateAsync({ id: note.id, statusName: 'trash' })
-            } catch {
-              Alert.alert('Error', 'Failed to delete note')
-            }
-          },
-        })
-      }
-
-      options.push({ text: 'Cancel', style: 'cancel', onPress: () => {} })
-      Alert.alert(note.title || 'Note Option', undefined, options)
-    },
-    [copyNote, deleteNote, updateNote, activeTab],
-  )
+  const menuItems = useMemo(() => {
+    if (selectedNotes.length !== 1) return []
+    return [
+      {
+        icon: 'pencil-outline' as const,
+        label: 'Edit',
+        onPress: editSelected,
+      },
+    ]
+  }, [selectedNotes, editSelected])
 
 
   if (isPending) {
@@ -329,6 +377,82 @@ export default function HomeScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Top Header */}
       <View style={[styles.header, { paddingTop: insets.top + Spacing.two }]}>
+        {selectionMode ? (
+          <View style={styles.selectionBar}>
+            <Pressable
+              onPress={clearSelection}
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.selectionActionBtn,
+                { opacity: pressed ? 0.6 : 1 },
+              ]}
+            >
+              <Ionicons name="close-outline" size={24} color={theme.text} />
+            </Pressable>
+            <Text
+              style={[styles.selectionCount, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {selectedIds.length} selected
+            </Text>
+            <View style={styles.selectionActions}>
+              {toolbarButtons.map((btn) => (
+                <Pressable
+                  key={btn.label}
+                  onPress={btn.onPress}
+                  hitSlop={6}
+                  style={({ pressed }) => [
+                    styles.selectionActionBtn,
+                    { opacity: pressed ? 0.6 : 1 },
+                  ]}
+                >
+                  <Ionicons
+                    name={btn.icon}
+                    size={20}
+                    color={btn.color ?? theme.text}
+                  />
+                </Pressable>
+              ))}
+              {menuItems.length > 0 && (
+                <Menu
+                  visible={selectionMenuOpen}
+                  onDismiss={() => setSelectionMenuOpen(false)}
+                  anchor={
+                    <Pressable
+                      onPress={() => setSelectionMenuOpen((o) => !o)}
+                      hitSlop={6}
+                      style={({ pressed }) => [
+                        styles.selectionActionBtn,
+                        { opacity: pressed ? 0.6 : 1 },
+                      ]}
+                    >
+                      <Ionicons
+                        name="ellipsis-vertical"
+                        size={20}
+                        color={theme.text}
+                      />
+                    </Pressable>
+                  }
+                >
+                  {menuItems.map((item) => (
+                    <Menu.Item
+                      key={item.label}
+                      leadingIcon={({ size, color }) => (
+                        <Ionicons name={item.icon} size={size} color={color} />
+                      )}
+                      title={item.label}
+                      onPress={() => {
+                        setSelectionMenuOpen(false)
+                        item.onPress()
+                      }}
+                    />
+                  ))}
+                </Menu>
+              )}
+            </View>
+          </View>
+        ) : (
+          <>
         <View style={styles.headerRow}>
           <Pressable onPress={() => (navigation as any).toggleDrawer()}>
             <Ionicons name="menu-outline" size={24} color={theme.text} />
@@ -477,6 +601,8 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         )}
+          </>
+        )}
       </View>
 
       {/* Main List */}
@@ -517,6 +643,7 @@ export default function HomeScreen() {
       ) : (
         <FlatList
           data={items}
+          extraData={selectedIds}
           keyExtractor={(item, index) =>
             item.type === 'note' ? item.note.id : `header-${index}`
           }
@@ -556,7 +683,14 @@ export default function HomeScreen() {
               >
                 <NoteCard
                   note={item.note!}
-                  onPress={() => router.push(`/note/${item.note!.id}`)}
+                  selected={selectedIds.includes(item.note!.id)}
+                  onPress={() => {
+                    if (selectionMode) {
+                      toggleSelect(item.note!)
+                    } else {
+                      router.push(`/note/${item.note!.id}`)
+                    }
+                  }}
                   onLongPress={() => handleLongPress(item.note!)}
                 />
               </View>
@@ -566,7 +700,7 @@ export default function HomeScreen() {
       )}
 
       {/* Floating Action Button */}
-      {!activeTab && (
+      {!activeTab && !selectionMode && (
         <Pressable
           style={({ pressed }) => [
             styles.fab,
@@ -617,6 +751,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.two,
+  },
+  selectionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginBottom: Spacing.three,
+  },
+  selectionCount: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  selectionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  selectionActionBtn: {
+    padding: Spacing.half,
   },
   headerActions: {
     flexDirection: 'row',
