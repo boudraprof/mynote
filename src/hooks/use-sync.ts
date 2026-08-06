@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { AppState } from 'react-native'
+import { getNetworkStateAsync } from 'expo-network'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNetwork } from '@/hooks/use-network'
 import { useAuth } from '@/providers/auth-provider'
@@ -205,8 +207,29 @@ export function useSyncPendingNotes() {
   const syncing = useRef(false)
 
   useEffect(() => {
+    let cancelled = false
+
+    // Run one sync pass unless one is already in flight. Any scheduled retry
+    // is superseded by this fresh attempt.
+    const syncIfReady = () => {
+      if (syncing.current) return
+      syncing.current = true
+      ;(async () => {
+        try {
+          cancelPendingRetry()
+          await syncPendingNotes()
+          if (!cancelled) {
+            queryClient.invalidateQueries({ queryKey: [NOTES_KEY] })
+          }
+        } finally {
+          syncing.current = false
+        }
+      })()
+    }
+
     if (!isOnline) {
-      // Stop futile retries while offline.
+      // Stop futile retries while offline; the connectivity listener or a
+      // foreground transition re-triggers the sync once we're back online.
       cancelPendingRetry()
       return
     }
@@ -216,18 +239,24 @@ export function useSyncPendingNotes() {
       cancelPendingRetry()
       return
     }
-    if (syncing.current) return
+    syncIfReady()
 
-    syncing.current = true
-    ;(async () => {
-      try {
-        // A reconnect sync supersedes any scheduled retry.
-        cancelPendingRetry()
-        await syncPendingNotes()
-        queryClient.invalidateQueries({ queryKey: [NOTES_KEY] })
-      } finally {
-        syncing.current = false
+    // Connectivity events are only observed while the app is running. When
+    // the app returns to the foreground, actively re-check the network and
+    // sync — the connection may have changed while it was backgrounded.
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void getNetworkStateAsync().then((networkState) => {
+          if (!cancelled && networkState.isConnected && user) {
+            syncIfReady()
+          }
+        })
       }
-    })()
+    })
+
+    return () => {
+      cancelled = true
+      subscription.remove()
+    }
   }, [isOnline, queryClient, user])
 }

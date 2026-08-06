@@ -83,7 +83,7 @@ function ThemedRoot() {
                 />
                 <Stack.Screen
                   name="note/[id]"
-                  options={{ headerShown: true }}
+
                 />
                 <Stack.Screen
                   name="profile/index"
