@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -21,7 +22,7 @@ import {
   useNotes,
   useUpdateNote,
 } from '@/hooks/use-notes'
-import { pullServerNotes } from '@/hooks/use-sync'
+import { pullServerNotes, syncPendingNotes, useSyncStatus } from '@/hooks/use-sync'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/hooks/use-theme'
 import { NoteCard } from '@/components/NoteCard'
@@ -68,6 +69,7 @@ export default function HomeScreen() {
   const deleteNote = useDeleteNote()
   const copyNote = useCopyNote()
   const updateNote = useUpdateNote()
+  const sync = useSyncStatus()
 
   const navigation = useNavigation()
   const rawNotes = data?.data ?? []
@@ -415,6 +417,47 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {/* Pending sync banner */}
+        {(sync.pending > 0 || sync.syncing) && (
+          <View
+            style={[
+              styles.syncBanner,
+              {
+                backgroundColor: sync.syncing
+                  ? theme.accentLight
+                  : theme.backgroundSelected,
+              },
+            ]}
+          >
+            {sync.syncing ? (
+              <ActivityIndicator size="small" color={theme.accent} />
+            ) : (
+              <Ionicons
+                name="cloud-upload-outline"
+                size={14}
+                color={theme.textSecondary}
+              />
+            )}
+            <Text
+              style={[styles.syncBannerText, { color: theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {sync.syncing
+                ? `Syncing ${sync.pending} change${sync.pending === 1 ? '' : 's'}…`
+                : sync.retryInMs > 0
+                  ? `${sync.pending} change${sync.pending === 1 ? '' : 's'} waiting — retrying in ${Math.ceil(sync.retryInMs / 1000)}s`
+                  : `${sync.pending} change${sync.pending === 1 ? '' : 's'} waiting to sync`}
+            </Text>
+            {!sync.syncing && (
+              <Pressable onPress={() => void syncPendingNotes()} hitSlop={8}>
+                <Text style={[styles.syncBannerAction, { color: theme.accent }]}>
+                  Sync now
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
         {/* Empty Trash Button Row */}
         {activeTab === 'trash' && notesList.length > 0 && (
           <View style={styles.trashHeaderRow}>
@@ -674,5 +717,24 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  syncBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginHorizontal: Spacing.three,
+    marginTop: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.md,
+  },
+  syncBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  syncBannerAction: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 })
