@@ -3,9 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  ImageSourcePropType,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -14,67 +12,55 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Stack, router, useLocalSearchParams } from 'expo-router'
+import { Stack, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import * as ImagePicker from 'expo-image-picker'
+
 import type { ChecklistItem } from '@/components/ChecklistEditor'
-import { useDeleteNote, useNote, useUpdateNote } from '@/hooks/use-notes'
 import { useTheme } from '@/hooks/use-theme'
-import { LoadingView } from '@/components/LoadingView'
 import { Radius, Spacing } from '@/constants/theme'
 import { LabelPicker } from '@/components/LabelPicker'
 import { ChecklistEditor } from '@/components/ChecklistEditor'
 import { PalettePicker } from '@/components/PalettePicker'
 import { ImageAttachments } from '@/components/ImageAttachments'
 import { DrawingEditor } from '@/components/DrawingEditor'
-import { ReminderSheet } from '@/components/ReminderSheet'
-import { ShareSheet } from '@/components/ShareSheet'
+import { ActionSheet } from '@/components/ActionSheet'
 import { Ionicons } from '@expo/vector-icons'
-import { htmlToPlainText } from '@/lib/html'
-import {
-  cancelReminder,
-  ensureReminderPermissions,
-  scheduleReminder,
-} from '@/lib/notifications'
 import { uploadImage } from '@/api/upload'
+import { updateLocalNote } from '@/lib/offline-notes'
+import { useNetwork } from '@/hooks/use-network'
 import { useAuth } from '@/providers/auth-provider'
+import { syncPendingNotes } from '@/hooks/use-sync'
+import { useNote } from '@/hooks/use-notes'
 import { useNoteHistory } from '@/hooks/use-note-history'
+import { htmlToPlainText } from '@/lib/html'
+import { backgroundImages, paletteColorValues } from '@/constants/paletteBg'
+import { HistoryModal } from '@/components/HistoryModal'
 
-const paletteColorValues: Record<string, string> = {
-  coral: '#f4a460',
-  peach: '#ffdab9',
-  sand: '#f5deb3',
-  mint: '#98fb98',
-  sage: '#bcb88a',
-  fog: '#dcdcdc',
-  storm: '#708090',
-  dusk: '#b0c4de',
-  blossom: '#ffb7c5',
-  clay: '#c4a882',
-  chalk: '#f5f5dc',
-}
-
-const backgroundImages: Record<string, ImageSourcePropType> = {
-  celebration_dark_thumb_0715: require('../../../assets/backgrounds/celebration_dark_thumb_0715.png'),
-  video_dark_thumb_0615: require('../../../assets/backgrounds/video_dark_thumb_0615.png'),
-  travel_dark_thumb_0615: require('../../../assets/backgrounds/travel_dark_thumb_0615.png'),
-  places_dark_thumb_0615: require('../../../assets/backgrounds/places_dark_thumb_0615.png'),
-  notes_dark_thumb_0715: require('../../../assets/backgrounds/notes_dark_thumb_0715.png'),
-  recipe_dark_thumb_0615: require('../../../assets/backgrounds/recipe_dark_thumb_0615.png'),
-  music_dark_thumb_0615: require('../../../assets/backgrounds/music_dark_thumb_0615.png'),
-  food_dark_thumb_0615: require('../../../assets/backgrounds/food_dark_thumb_0615.png'),
-  grocery_dark_thumb_0615: require('../../../assets/backgrounds/grocery_dark_thumb_0615.png'),
-}
+type ActiveSheet = 'add' | 'theme' | 'history' | null
 
 export default function NoteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
-  const { data: note, isLoading, error } = useNote(id)
-  const updateNote = useUpdateNote()
-  const deleteNote = useDeleteNote()
-  const { user } = useAuth()
+  const isOnline = useNetwork()
+  const { data: note, isLoading } = useNote(id)
   const history = useNoteHistory(id ?? null)
-
+  // Latest-value refs so the autosave debounce isn't restarted on
+  // connectivity or auth changes.
+  const { user } = useAuth()
+  const userRef = useRef(user)
+  const isOnlineRef = useRef(isOnline)
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
+  useEffect(() => {
+    isOnlineRef.current = isOnline
+  }, [isOnline])
+  const noteIdRef = useRef<string | null>(null)
+  const seededIdRef = useRef<string | null>(null)
+  const originalContentRef = useRef<string | null>(null)
+  const lastSavedRef = useRef<string>('')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [labels, setLabels] = useState<string[]>([])
@@ -82,16 +68,8 @@ export default function NoteDetailScreen() {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
   const [palette, setPalette] = useState<string | null>(null)
   const [image, setImage] = useState<string | null>(null)
-  const [reminderAt, setReminderAt] = useState<string | null>(null)
-  const [dirty, setDirty] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null)
   const [drawingVisible, setDrawingVisible] = useState(false)
-  const [reminderVisible, setReminderVisible] = useState(false)
-  const [shareVisible, setShareVisible] = useState(false)
-  const [historyVisible, setHistoryVisible] = useState(false)
-  const originalContentRef = useRef<string | null>(null)
-  const seededIdRef = useRef<string | null>(null)
-  const lastSavedRef = useRef<string>('')
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
     'idle',
   )
@@ -104,12 +82,13 @@ export default function NoteDetailScreen() {
     }
   }
 
+  // Seed the editor from the fetched note once it arrives. Guarded by the
+  // note id so refetches after an auto-save (same id) don't clobber whatever
+  // the user is currently typing.
   useEffect(() => {
-    // Seed the editor from the fetched note once it arrives. Guarded by
-    // note id so refetches after an auto-save (same id) don't clobber
-    // whatever the user is currently typing.
     if (note && seededIdRef.current !== note.id) {
       seededIdRef.current = note.id
+      noteIdRef.current = note.id
       setTitle(note.title ?? '')
       // The web app stores rich-text HTML; the mobile editor is plain text,
       // so normalize for editing but remember the original so an untouched
@@ -123,13 +102,11 @@ export default function NoteDetailScreen() {
       )
       setPalette(note.palette)
       setImage(note.image)
-      setReminderAt(note.reminderAt ?? null)
       // The freshly seeded state is by definition already saved, so the
       // auto-save effect below won't fire until the user changes something.
-      // Field order must match buildPayload() so the snapshot comparison
-      // works.
+      // Field order must match buildPayload() so the keys compare equal.
       lastSavedRef.current = JSON.stringify({
-        id,
+        id: note.id,
         title: note.title ?? '',
         content: note.content,
         labels: note.labels ?? [],
@@ -137,18 +114,17 @@ export default function NoteDetailScreen() {
         checklistItems: note.checklistItems ?? null,
         palette: note.palette,
         image: note.image,
-        reminderAt: note.reminderAt ?? null,
       })
     }
-  }, [note, id])
+  }, [note])
 
-  const markDirty = useCallback(() => setDirty(true), [])
-
-  // Shared payload builder for manual save, auto-save and history.
+  // Shared payload builder for auto-save and history snapshots.
   const buildPayload = useCallback(
     (noteId: string) => ({
       id: noteId,
       title,
+      // Preserve the original web rich-text when the editor text hasn't
+      // changed, so opening a note doesn't strip web formatting.
       content: isChecklist
         ? null
         : content === htmlToPlainText(originalContentRef.current)
@@ -162,173 +138,142 @@ export default function NoteDetailScreen() {
           : null,
       palette,
       image,
-      reminderAt,
     }),
-    [
-      title,
-      content,
-      labels,
-      isChecklist,
-      checklistItems,
-      palette,
-      image,
-      reminderAt,
-    ],
+    [title, content, labels, isChecklist, checklistItems, palette, image],
   )
 
   // Auto-save: debounce editor changes and persist 800ms after the user
-  // stops typing. useUpdateNote is local-first, so this also works offline.
+  // stops typing. updateLocalNote is local-first, so this also works
+  // offline, and each saved change becomes a history snapshot.
+  const { saveVersion } = history
   useEffect(() => {
-    if (!id || !seededIdRef.current) return
-    const payload = buildPayload(id)
+    if (!noteIdRef.current || !seededIdRef.current) return
+    const payload = buildPayload(noteIdRef.current)
     const key = JSON.stringify(payload)
     if (key === lastSavedRef.current) return
     setSaveStatus('saving')
     const timer = setTimeout(async () => {
       try {
-        await updateNote.mutateAsync(payload)
+        await updateLocalNote(payload)
         lastSavedRef.current = key
         setSaveStatus('saved')
-        setDirty(false)
+        // Snapshot this version for history (server-first, local fallback).
+        void saveVersion(noteIdRef.current!, payload, 'update')
+        // Push the locally-saved note to the server when online
+        if (isOnlineRef.current && userRef.current) {
+          syncPendingNotes().catch((e) => console.warn('Auto-sync failed:', e))
+        }
       } catch {
         // Keep the unsaved state; the next keystroke retries.
         setSaveStatus('idle')
       }
     }, 800)
     return () => clearTimeout(timer)
-  }, [id, buildPayload, updateNote])
+  }, [
+    title,
+    content,
+    labels,
+    isChecklist,
+    checklistItems,
+    palette,
+    image,
+    buildPayload,
+    saveVersion,
+  ])
 
-  const handleSave = useCallback(async () => {
-    if (!id || saving) return
-    setSaving(true)
+  // ── Image picking ──────────────────────────────────────────
+  const pickFromGallery = useCallback(async () => {
+    setActiveSheet(null)
     try {
-      const payload = buildPayload(id)
-      await updateNote.mutateAsync(payload)
-      lastSavedRef.current = JSON.stringify(payload)
-      // Snapshot this version locally for history
-      await history.saveVersion(id, payload, 'update')
-      setDirty(false)
-      router.back()
-    } catch {
-      Alert.alert('Error', 'Failed to save note')
-    } finally {
-      setSaving(false)
-    }
-  }, [id, saving, buildPayload, updateNote, history])
-
-  const saveDrawing = useCallback(
-    async (uri: string) => {
-      try {
-        const uploadResult = await uploadImage(
-          {
-            uri,
-            name: `drawing-${Date.now()}.png`,
-            type: 'image/png',
-          },
-          'drawings',
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission Required',
+          'Please grant media library access to choose images.',
         )
+        return
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      })
+      console.log(result)
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0]
+        const uploadResult = await uploadImage({
+          uri: asset.uri,
+          name: asset.fileName || 'photo.jpg',
+          type: asset.mimeType || 'image/jpeg',
+        })
         if (uploadResult.url) {
           setImage(uploadResult.url)
-          markDirty()
         } else {
           Alert.alert('Error', uploadResult.errors || 'Upload failed')
         }
-      } catch {
-        Alert.alert('Error', 'Failed to save drawing')
       }
-    },
-    [markDirty],
-  )
+    } catch {
+      Alert.alert('Error', 'Failed to pick image')
+    }
+  }, [])
 
-  const handleSaveReminder = useCallback(
-    async (value: string | null) => {
-      if (!id) return
-      try {
-        await updateNote.mutateAsync({ id, reminderAt: value })
-        setReminderAt(value)
-        setDirty(false)
-
-        // Keep the OS local notification in sync with the stored reminder.
-        if (value) {
-          const granted = await ensureReminderPermissions()
-          if (granted) {
-            await scheduleReminder(id, note?.title, value)
-          } else {
-            Alert.alert(
-              'Reminder saved',
-              'Notifications are disabled for this app. Enable them in your device settings to get reminded.',
-            )
-          }
-        } else {
-          await cancelReminder(id)
-        }
-      } catch {
-        Alert.alert('Error', 'Failed to update reminder')
-      }
-    },
-    [id, updateNote, note],
-  )
-
-  const handleDelete = useCallback(() => {
-    Alert.alert('Delete Note', 'Move this note to trash?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Move to Trash',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await updateNote.mutateAsync({ id: id, statusName: 'trash' })
-            void cancelReminder(id)
-            router.back()
-          } catch {
-            Alert.alert('Error', 'Failed to delete note')
-          }
-        },
-      },
-    ])
-  }, [id, updateNote])
-
-  const handleArchive = useCallback(async () => {
-    if (!id) return
+  const takePhoto = useCallback(async () => {
+    setActiveSheet(null)
     try {
-      await updateNote.mutateAsync({
-        id,
-        statusName: note?.StatusName === 'archived' ? 'active' : 'archived',
+      const permission = await ImagePicker.requestCameraPermissionsAsync()
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission Required',
+          'Please grant camera access to take photos.',
+        )
+        return
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.8,
       })
-      router.back()
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0]
+        const uploadResult = await uploadImage({
+          uri: asset.uri,
+          name: asset.fileName || 'photo.jpg',
+          type: asset.mimeType || 'image/jpeg',
+        })
+        if (uploadResult.url) {
+          setImage(uploadResult.url)
+        } else {
+          Alert.alert('Error', uploadResult.errors || 'Upload failed')
+        }
+      }
     } catch {
-      Alert.alert('Error', 'Failed to archive note')
+      Alert.alert('Error', 'Failed to take photo')
     }
-  }, [id, note, updateNote])
+  }, [])
 
-  const handleRestore = useCallback(async () => {
-    if (!id) return
+  const toggleChecklist = useCallback(() => {
+    setActiveSheet(null)
+    setIsChecklist((prev) => !prev)
+  }, [])
+
+  const saveDrawing = useCallback(async (uri: string) => {
     try {
-      await updateNote.mutateAsync({ id, statusName: 'active' })
-      router.back()
-    } catch {
-      Alert.alert('Error', 'Failed to restore note')
-    }
-  }, [id, updateNote])
-
-  const handlePermanentDelete = useCallback(() => {
-    Alert.alert('Delete Forever', 'This note will be permanently deleted.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteNote.mutateAsync(id)
-            void cancelReminder(id)
-            router.back()
-          } catch {
-            Alert.alert('Error', 'Failed to delete note')
-          }
+      const uploadResult = await uploadImage(
+        {
+          uri,
+          name: `drawing-${Date.now()}.png`,
+          type: 'image/png',
         },
-      },
-    ])
-  }, [id, deleteNote])
+        'drawings',
+      )
+      if (uploadResult.url) {
+        setImage(uploadResult.url)
+      } else {
+        Alert.alert('Error', uploadResult.errors || 'Upload failed')
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to save drawing')
+    }
+  }, [])
 
   const handleRestoreVersion = useCallback(
     async (versionId: string) => {
@@ -347,43 +292,45 @@ export default function NoteDetailScreen() {
         setPalette((snapshot.palette as string | null) ?? null)
       if ('image' in snapshot)
         setImage((snapshot.image as string | null) ?? null)
+      if ('checklist' in snapshot) setIsChecklist(Boolean(snapshot.checklist))
       if ('checklistItems' in snapshot && snapshot.checklistItems != null) {
         setIsChecklist(true)
         setChecklistItems(parseItems(snapshot.checklistItems as string))
       }
-      markDirty()
-      setHistoryVisible(false)
+      // The auto-save effect picks up the restored state and persists it.
+      setActiveSheet(null)
     },
-    [history, markDirty],
+    [history],
   )
 
-  if (isLoading) {
-    return <LoadingView message="Loading note..." />
-  }
-
-  if (error || !note) {
+  // ── Loading / missing states ─────────────────────────
+  if (isLoading && !note) {
     return (
-      <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={{ color: theme.text, fontSize: 16 }}>Note not found</Text>
-        <Pressable
-          style={({ pressed }) => [
-            { opacity: pressed ? 0.6 : 1, marginTop: Spacing.three },
-          ]}
-          onPress={() =>{
-            router.back()
-          }}
-        >
-          <Text style={{ color: theme.textSecondary, fontSize: 15 }}>
-            Go back
-          </Text>
-        </Pressable>
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: theme.background },
+        ]}
+      >
+        <ActivityIndicator color={theme.accent} size="large" />
       </View>
     )
   }
 
-  const isTrash = note.StatusName === 'trash'
-  const isArchive = note.StatusName === 'archived'
-  const isOwner = user?.id === note.userId
+  if (!note) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: theme.background },
+        ]}
+      >
+        <Text style={{ color: theme.textSecondary }}>Note not found</Text>
+      </View>
+    )
+  }
 
   const bgName = palette ? palette.split('/').pop()?.replace(/\.svg$/, '') : null
   const isImageBg = bgName ? backgroundImages[bgName] !== undefined : false
@@ -398,69 +345,15 @@ export default function NoteDetailScreen() {
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: containerBg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // keyboardVerticalOffset={insets.top}
     >
       <Stack.Screen
         options={{
-          title: '',
+          headerShown: true,
+          title: 'Edit',
           headerStyle: { backgroundColor: containerBg },
           headerTintColor: textColor,
           headerShadowVisible: false,
-          headerShown: true,
-          headerLeft: () => (
-            <Pressable
-              onPress={() => {
-                if (dirty) {
-                  Alert.alert('Discard changes?', 'Unsaved edits will be discarded', [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Discard',
-                      style: 'destructive',
-                      onPress: () => {
-                        router.back()
-                      },
-                    },
-                  ])
-                } else {
-                  router.back()
-                }
-              }}
-              style={styles.headerBtn}
-            >
-              <View
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-              >
-                <Ionicons
-                  name="arrow-back-outline"
-                  size={20}
-                  color={secondaryColor}
-                />
-                <Text style={[styles.backText, { color: secondaryColor }]}>
-                  Edit
-                </Text>
-              </View>
-            </Pressable>
-          ),
-          headerRight: () => (
-            <View style={styles.headerActions}>
-              {dirty && (
-                <Pressable
-                  onPress={handleSave}
-                  disabled={saving || updateNote.isPending}
-                  style={[
-                    styles.headerBtn,
-                    styles.saveBtn,
-                    { backgroundColor: theme.accent },
-                  ]}
-                >
-                  {saving || updateNote.isPending ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.saveText}>Save</Text>
-                  )}
-                </Pressable>
-              )}
-            </View>
-          ),
         }}
       />
 
@@ -472,441 +365,252 @@ export default function NoteDetailScreen() {
         />
       )}
 
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + Spacing.six },
-        ]}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/*{!isTrash && (
-          <ImageAttachments
-            image={image}
-            onChange={(url) => {
-              setImage(url)
-              markDirty()
-            }}
-          />
-        )}*/}
-
-        {reminderAt && !isTrash && (
-          <Pressable
-            style={[styles.reminderBadge, { backgroundColor: 'rgba(0,0,0,0.06)' }]}
-            onPress={() => setReminderVisible(true)}
-          >
-            <Ionicons name="notifications-outline" size={14} color={secondaryColor} />
-            <Text style={[styles.reminderBadgeText, { color: secondaryColor }]}>
-              {new Date(reminderAt).toLocaleString()}
-            </Text>
-          </Pressable>
-        )}
-
-        <TextInput
-          style={[styles.titleInput, { color: textColor }]}
-          value={title}
-          onChangeText={(v) => {
-            setTitle(v)
-            markDirty()
-          }}
-          placeholder="Title"
-          placeholderTextColor={secondaryColor}
-          editable={!isTrash}
-        />
-
-        {!isChecklist && (
+      <View style={styles.body}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <TextInput
-            style={[styles.contentInput, { color: textColor }]}
-            value={content}
-            onChangeText={(v) => {
-              setContent(v)
-              markDirty()
-            }}
-            placeholder="Note"
+            style={[styles.titleInput, { color: textColor }]}
+            placeholder="Title"
             placeholderTextColor={secondaryColor}
-            multiline
-            textAlignVertical="top"
-            editable={!isTrash}
+            value={title}
+            onChangeText={setTitle}
+            autoFocus
           />
-        )}
 
-        {isChecklist && (
-          <ChecklistEditor
-            items={checklistItems}
-            onChange={(items) => {
-              setChecklistItems(items)
-              markDirty()
-            }}
-          />
-        )}
+          <ImageAttachments image={image} onChange={setImage} />
 
-        {!isTrash && (
-          <View style={styles.editToolbar}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.toolBtn,
-                {
-                  backgroundColor: 'rgba(0,0,0,0.06)',
-                  opacity: pressed ? 0.7 : 1,
-                },
-                isChecklist && { backgroundColor: theme.accent },
-              ]}
-              onPress={() => {
-                setIsChecklist(!isChecklist)
-                markDirty()
-              }}
-            >
-              <Text
-                style={[
-                  styles.toolBtnText,
-                  { color: isChecklist ? '#fff' : textColor },
-                ]}
-              >
-                <Ionicons
-                  name="checkbox-outline"
-                  size={14}
-                  color={isChecklist ? '#fff' : textColor}
-                />{' '}
-                Checklist
-              </Text>
-            </Pressable>
+          {!isChecklist && (
+            <TextInput
+              style={[styles.contentInput, { color: textColor }]}
+              placeholder="Note"
+              placeholderTextColor={secondaryColor}
+              value={content}
+              onChangeText={setContent}
+              multiline
+              textAlignVertical="top"
+            />
+          )}
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.toolBtn,
-                {
-                  backgroundColor: 'rgba(0,0,0,0.06)',
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
-              onPress={() => setDrawingVisible(true)}
-            >
-              <Text style={[styles.toolBtnText, { color: textColor }]}>
-                <Ionicons name="brush-outline" size={14} color={textColor} />{' '}
-                Drawing
-              </Text>
-            </Pressable>
+          {isChecklist && (
+            <ChecklistEditor
+              items={checklistItems}
+              onChange={setChecklistItems}
+            />
+          )}
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.toolBtn,
-                {
-                  backgroundColor: 'rgba(0,0,0,0.06)',
-                  opacity: pressed ? 0.7 : 1,
-                },
-                reminderAt && { backgroundColor: theme.accent },
-              ]}
-              onPress={() => setReminderVisible(true)}
-            >
-              <Text
-                style={[
-                  styles.toolBtnText,
-                  { color: reminderAt ? '#fff' : textColor },
-                ]}
-              >
-                <Ionicons
-                  name="notifications-outline"
-                  size={14}
-                  color={reminderAt ? '#fff' : textColor}
-                />{' '}
-                Reminder
-              </Text>
-            </Pressable>
+          <LabelPicker selectedLabels={labels} onChange={setLabels} />
+        </ScrollView>
 
-            {isOwner && (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.toolBtn,
-                  {
-                    backgroundColor: 'rgba(0,0,0,0.06)',
-                    opacity: pressed ? 0.7 : 1,
-                  },
-                ]}
-                onPress={() => setShareVisible(true)}
-              >
-                <Text style={[styles.toolBtnText, { color: textColor }]}>
-                  <Ionicons name="share-social-outline" size={14} color={textColor} />{' '}
-                  Share
-                </Text>
-              </Pressable>
+        {/* ── Save status ─────────────────────────────── */}
+        {saveStatus !== 'idle' && (
+          <View style={styles.saveStatus}>
+            {saveStatus === 'saving' ? (
+              <ActivityIndicator size="small" color={secondaryColor} />
+            ) : (
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={16}
+                color={theme.success}
+              />
             )}
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.toolBtn,
-                {
-                  backgroundColor: 'rgba(0,0,0,0.06)',
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
-              onPress={() => setHistoryVisible(true)}
-            >
-              <Text style={[styles.toolBtnText, { color: textColor }]}>
-                <Ionicons name="time-outline" size={14} color={textColor} />{' '}
-                History
-              </Text>
-            </Pressable>
+            <Text style={[styles.saveStatusText, { color: secondaryColor }]}>
+              {saveStatus === 'saving' ? 'Saving…' : 'Saved'}
+            </Text>
           </View>
         )}
 
-        {!isTrash && (
-          <>
-            <View style={styles.section}>
-              <PalettePicker
-                selected={palette}
-                onChange={(p) => {
-                  setPalette(p)
-                  markDirty()
-                }}
-              />
-            </View>
-            <View style={styles.section}>
-              <LabelPicker
-                selectedLabels={labels}
-                onChange={(l) => {
-                  setLabels(l)
-                  markDirty()
-                }}
-              />
-            </View>
-          </>
-        )}
-      </ScrollView>
+        {/* ── Bottom action bar ──────────────────────────── */}
+        <View
+          style={[
+            styles.actionBar,
+            {
+              backgroundColor: containerBg,
+              borderTopColor: 'rgba(0,0,0,0.08)',
+               paddingBottom: insets.bottom + Spacing.two,
+            },
+          ]}
+        >
+          {/* Add content button */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionBarBtn,
+              { opacity: pressed ? 0.6 : 1 },
+            ]}
+            onPress={() => {setActiveSheet('add')}}
+          >
+            <Ionicons name="add-circle-outline" size={22} color={textColor} />
+            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>
+              Add
+            </Text>
+          </Pressable>
 
-      {/* ── Save status ─────────────────────────────── */}
-      {saveStatus !== 'idle' && (
-        <View style={styles.saveStatus}>
-          {saveStatus === 'saving' ? (
-            <ActivityIndicator size="small" color={secondaryColor} />
-          ) : (
+          {/* Theme / palette button */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionBarBtn,
+              { opacity: pressed ? 0.6 : 1 },
+            ]}
+            onPress={() => setActiveSheet('theme')}
+          >
             <Ionicons
-              name="checkmark-circle-outline"
-              size={16}
-              color={theme.success}
+              name="color-palette-outline"
+              size={22}
+              color={textColor}
             />
-          )}
-          <Text style={[styles.saveStatusText, { color: secondaryColor }]}>
-            {saveStatus === 'saving' ? 'Saving…' : 'Saved'}
+            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>
+              Theme
+            </Text>
+          </Pressable>
+
+          {/* Version history button */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionBarBtn,
+              { opacity: pressed ? 0.6 : 1 },
+            ]}
+            onPress={() => setActiveSheet('history')}
+          >
+            <Ionicons name="time-outline" size={22} color={textColor} />
+            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>
+              History
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ── Add content sheet ────────────────────────────── */}
+      <ActionSheet
+        visible={activeSheet === 'add'}
+        onClose={() => {
+          setActiveSheet(null)
+        }}
+      >
+        <View style={styles.sheetContent}>
+          <Text style={[styles.sheetTitle, { color: textColor }]}>
+            Add to note
           </Text>
-        </View>
-      )}
 
-      {/* Editor Footer Actions */}
-      {!isTrash && (
-        <View
-          style={[
-            styles.bottomBar,
-            {
-              borderTopColor: 'rgba(0,0,0,0.08)',
-              paddingBottom: insets.bottom + Spacing.three,
-            },
-          ]}
-        >
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionBtn,
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
-            onPress={handleArchive}
-          >
+          <Pressable style={styles.sheetRow} onPress={takePhoto}>
             <View
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+              style={[
+                styles.sheetIcon,
+                { backgroundColor: theme.backgroundElement },
+              ]}
             >
-              <Ionicons name="archive-outline" size={18} color={textColor} />
-              <Text style={[styles.actionBtnText, { color: textColor }]}>
-                {isArchive ? 'Unarchive' : 'Archive'}
-              </Text>
+              <Ionicons name="camera-outline" size={22} color={textColor} />
             </View>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionBtn,
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
-            onPress={handleDelete}
-          >
-            <View
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-            >
-              <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-              <Text style={[styles.actionBtnText, { color: '#FF3B30' }]}>
-                Move to Trash
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-      )}
-
-      {isTrash && (
-        <View
-          style={[
-            styles.bottomBar,
-            {
-              borderTopColor: 'rgba(0,0,0,0.08)',
-              paddingBottom: insets.bottom + Spacing.three,
-            },
-          ]}
-        >
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionBtn,
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
-            onPress={handleRestore}
-          >
-            <Text style={[styles.actionBtnText, { color: theme.accent }]}>
-              Restore
+            <Text style={[styles.sheetRowLabel, { color: textColor }]}>
+              Take photo
             </Text>
           </Pressable>
+
+          <Pressable style={styles.sheetRow} onPress={pickFromGallery}>
+            <View
+              style={[
+                styles.sheetIcon,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
+              <Ionicons name="image-outline" size={22} color={textColor} />
+            </View>
+            <Text style={[styles.sheetRowLabel, { color: textColor }]}>
+              Add image
+            </Text>
+          </Pressable>
+
           <Pressable
-            style={({ pressed }) => [
-              styles.actionBtn,
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
-            onPress={handlePermanentDelete}
+            style={styles.sheetRow}
+            onPress={() => {
+              setActiveSheet(null)
+              setDrawingVisible(true)
+            }}
           >
-            <Text style={[styles.actionBtnText, { color: '#FF3B30' }]}>
-              Delete Forever
+            <View
+              style={[
+                styles.sheetIcon,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
+              <Ionicons name="brush-outline" size={22} color={textColor} />
+            </View>
+            <Text style={[styles.sheetRowLabel, { color: textColor }]}>
+              Drawing
+            </Text>
+          </Pressable>
+
+          <Pressable style={styles.sheetRow} onPress={toggleChecklist}>
+            <View
+              style={[
+                styles.sheetIcon,
+                {
+                  backgroundColor: isChecklist
+                    ? theme.accent
+                    : theme.backgroundElement,
+                },
+              ]}
+            >
+              <Ionicons
+                name="checkbox-outline"
+                size={22}
+                color={isChecklist ? '#fff' : textColor}
+              />
+            </View>
+            <Text style={[styles.sheetRowLabel, { color: textColor }]}>
+              {isChecklist ? 'Switch to text' : 'Checkboxes'}
             </Text>
           </Pressable>
         </View>
-      )}
+      </ActionSheet>
 
+      {/* ── Theme sheet ──────────────────────────────────── */}
+      <ActionSheet
+        visible={activeSheet === 'theme'}
+        onClose={() => setActiveSheet(null)}
+      >
+        <View style={styles.sheetContent}>
+          <Text style={[styles.sheetTitle, { color: textColor }]}>
+            Note theme
+          </Text>
+          <PalettePicker
+            selected={palette}
+            onChange={(p) => {
+              setPalette(p)
+              setActiveSheet(null)
+            }}
+          />
+        </View>
+      </ActionSheet>
+
+      {/* ── Version history ────────────────────────────── */}
+      <HistoryModal
+        visible={activeSheet === 'history'}
+        onClose={() => setActiveSheet(null)}
+        isLoading={history.isLoading}
+        versions={history.versions}
+        onRestoreVersion={handleRestoreVersion}
+      />
+
+      {/* ── Drawing editor ─────────────────────────────── */}
       <DrawingEditor
         visible={drawingVisible}
         onClose={() => setDrawingVisible(false)}
         onSave={saveDrawing}
       />
-
-      <ReminderSheet
-        visible={reminderVisible}
-        onClose={() => setReminderVisible(false)}
-        currentReminder={reminderAt}
-        onSave={handleSaveReminder}
-      />
-
-      {isOwner && (
-        <ShareSheet
-          visible={shareVisible}
-          onClose={() => setShareVisible(false)}
-          noteId={id}
-        />
-      )}
-
-      {/* History modal */}
-      <Modal
-        visible={historyVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setHistoryVisible(false)}
-      >
-        <View style={styles.backdrop}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setHistoryVisible(false)}
-          />
-          <View style={[styles.sheet, { backgroundColor: theme.surface }]}>
-            <View style={[styles.handle, { backgroundColor: theme.border }]} />
-            <Text style={[styles.sheetTitle, { color: theme.text }]}>
-              Version history
-            </Text>
-            {history.isLoading ? (
-              <ActivityIndicator
-                color={theme.accent}
-                style={{ marginVertical: Spacing.four }}
-              />
-            ) : history.versions.length === 0 ? (
-              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                No versions saved yet
-              </Text>
-            ) : (
-              <ScrollView style={styles.historyList}>
-                {history.versions.map((v) => (
-                  <Pressable
-                    key={v.id}
-                    style={({ pressed }) => [
-                      styles.historyRow,
-                      {
-                        backgroundColor: theme.backgroundElement,
-                        opacity: pressed ? 0.7 : 1,
-                      },
-                    ]}
-                    onPress={() =>
-                      Alert.alert(
-                        'Restore version',
-                        'Replace the current note with this version?',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Restore',
-                            onPress: () =>
-                              void handleRestoreVersion(v.id),
-                          },
-                        ],
-                      )
-                    }
-                  >
-                    <View style={styles.historyInfo}>
-                      <Text style={[styles.historyTime, { color: theme.text }]}>
-                        {new Date(v.timestamp).toLocaleString()}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.historyType,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        {v.changeType === 'create'
-                          ? 'Created'
-                          : v.changeType === 'delete'
-                            ? 'Deleted'
-                            : 'Edited'}
-                        {v.title ? ` — ${v.title}` : ''}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="refresh-outline"
-                      size={18}
-                      color={theme.textSecondary}
-                    />
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
     </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  body: { flex: 1 },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scrollContent: { padding: Spacing.four, gap: Spacing.three },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  headerBtn: {
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 6,
-    borderRadius: Radius.sm,
-  },
-  saveBtn: { paddingHorizontal: Spacing.three },
-  headerActions: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-    alignItems: 'center',
-  },
-  backText: { fontSize: 15, fontWeight: '600' },
-  saveText: { fontSize: 14, fontWeight: '600', color: '#fff' },
-  reminderBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    marginTop: Spacing.two,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: Radius.full,
-    gap: 6,
-  },
-  reminderBadgeText: { fontSize: 12, fontWeight: '600' },
   titleInput: {
     fontSize: 24,
     fontWeight: '700',
@@ -917,22 +621,26 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     minHeight: 250,
   },
-  editToolbar: {
+
+  // ── Action bar (3 buttons) ────────────────────────────
+  actionBar: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingVertical: Spacing.two,
-    gap: Spacing.two,
+    borderTopWidth: 1,
+    paddingTop: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    gap: Spacing.one,
   },
-  toolBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: Radius.sm,
-    justifyContent: 'center',
+  actionBarBtn: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.one,
+    borderRadius: Radius.sm,
+    // gap: 2,
   },
-  toolBtnText: { fontSize: 13, fontWeight: '600' },
-  section: {
-    paddingVertical: Spacing.two,
+  actionBarLabel: {
+    fontSize: 11,
+    fontWeight: '500',
   },
 
   // ── Save status ─────────────────────────────────────
@@ -947,56 +655,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  bottomBar: {
-    borderTopWidth: 1,
+
+  // ── Bottom sheet shared ───────────────────────────────
+  sheetContent: {
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing.four,
-  },
-  actionBtn: {
-    flex: 1,
-    paddingVertical: Spacing.two,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: Radius.sm,
-    backgroundColor: 'rgba(0,0,0,0.03)',
-  },
-  actionBtnText: { fontSize: 13, fontWeight: '600' },
-  backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  sheet: {
-    borderTopLeftRadius: Radius.lg,
-    borderTopRightRadius: Radius.lg,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
-    paddingBottom: Spacing.six,
-    gap: Spacing.three,
-    maxHeight: '70%',
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-  },
-  sheetTitle: { fontSize: 18, fontWeight: '700' },
-  emptyText: { textAlign: 'center', paddingVertical: Spacing.four, fontSize: 14 },
-  historyList: {},
-  historyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    marginBottom: Spacing.two,
     gap: Spacing.two,
   },
-  historyInfo: { flex: 1 },
-  historyTime: { fontSize: 14, fontWeight: '600' },
-  historyType: { fontSize: 12, marginTop: 2 },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: Spacing.one,
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.sm,
+  },
+  sheetIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetRowLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  sheetBadge: {
+    fontSize: 12,
+    fontWeight: '500',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
 })
