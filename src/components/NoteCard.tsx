@@ -70,7 +70,9 @@ export function NoteCard({
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
     const now = new Date()
-    const diffMs = now.getTime() - d.getTime()
+    // Clamp so a slightly-future timestamp (e.g. server clock ahead of the
+    // device) renders as "today" instead of a negative "-1d ago".
+    const diffMs = Math.max(0, now.getTime() - d.getTime())
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
     if (diffDays === 0)
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
