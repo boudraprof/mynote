@@ -36,6 +36,7 @@ import { useNoteHistory } from '@/hooks/use-note-history'
 import { htmlToPlainText } from '@/lib/html'
 import { backgroundImages, paletteColorValues } from '@/constants/paletteBg'
 import { HistoryModal } from '@/components/HistoryModal'
+import { useUndoStack } from '@/hooks/use-undo'
 
 type ActiveSheet = 'add' | 'theme' | 'history' | null
 
@@ -61,8 +62,6 @@ export default function NoteDetailScreen() {
   const seededIdRef = useRef<string | null>(null)
   const originalContentRef = useRef<string | null>(null)
   const lastSavedRef = useRef<string>('')
-  const redoStackRef = useRef<Record<string, unknown>[]>([])
-  const isRestoreSaveRef = useRef(false)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [labels, setLabels] = useState<string[]>([])
@@ -75,6 +74,9 @@ export default function NoteDetailScreen() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
     'idle',
   )
+  // In-memory undo/redo stack for the content editor (works offline).
+  const { record: recordUndo, undo: undoContent, redo: redoContent, reset: resetUndo } =
+    useUndoStack('')
 
   const parseItems = (raw: string): ChecklistItem[] => {
     try {
@@ -96,7 +98,9 @@ export default function NoteDetailScreen() {
       // so normalize for editing but remember the original so an untouched
       // save doesn't strip web formatting.
       originalContentRef.current = note.content
-      setContent(htmlToPlainText(note.content))
+      const plainContent = htmlToPlainText(note.content)
+      setContent(plainContent)
+      resetUndo(plainContent)
       setLabels(note.labels ?? [])
       setIsChecklist(note.checklist ?? false)
       setChecklistItems(
@@ -118,7 +122,7 @@ export default function NoteDetailScreen() {
         image: note.image,
       })
     }
-  }, [note])
+  }, [note, resetUndo])
 
   // Shared payload builder for auto-save and history snapshots.
   const buildPayload = useCallback(
@@ -161,9 +165,6 @@ export default function NoteDetailScreen() {
         setSaveStatus('saved')
         // Snapshot this version for history (server-first, local fallback).
         void saveVersion(noteIdRef.current!, payload, 'update')
-        // A fresh user edit invalidates the redo stack; restores don't.
-        if (!isRestoreSaveRef.current) redoStackRef.current = []
-        isRestoreSaveRef.current = false
         // Push the locally-saved note to the server when online
         if (isOnlineRef.current && userRef.current) {
           syncPendingNotes().catch((e) => console.warn('Auto-sync failed:', e))
@@ -283,12 +284,12 @@ export default function NoteDetailScreen() {
   // Apply a version snapshot back onto the editor. The auto-save effect
   // then persists it, so restored state also lands in the local DB.
   const applySnapshot = useCallback((snapshot: Record<string, unknown>) => {
-    // Mark the upcoming auto-save as a restore so it doesn't clear redo.
-    isRestoreSaveRef.current = true
     if ('title' in snapshot) setTitle((snapshot.title as string | null) ?? '')
     if ('content' in snapshot) {
       originalContentRef.current = snapshot.content as string | null
-      setContent(htmlToPlainText(snapshot.content as string | null))
+      const plain = htmlToPlainText(snapshot.content as string | null)
+      setContent(plain)
+      resetUndo(plain)
     }
     if ('labels' in snapshot) setLabels((snapshot.labels as string[]) ?? [])
     if ('palette' in snapshot)
@@ -300,7 +301,7 @@ export default function NoteDetailScreen() {
       setIsChecklist(true)
       setChecklistItems(parseItems(snapshot.checklistItems as string))
     }
-  }, [])
+  }, [resetUndo])
 
   const handleRestoreVersion = useCallback(
     async (versionId: string) => {
@@ -315,31 +316,20 @@ export default function NoteDetailScreen() {
     [history, applySnapshot],
   )
 
-  const handleUndo = useCallback(async () => {
-    if (!noteIdRef.current) return
-    const payload = buildPayload(noteIdRef.current)
-    // If the current state is already saved, the newest version equals it,
-    // so undo targets the one before it. Otherwise (unsaved edit) undo
-    // targets the newest saved version.
-    const offset = JSON.stringify(payload) === lastSavedRef.current ? 1 : 0
-    const target = history.versions[offset]
-    if (!target) {
-      // Nothing to undo — surface the version history instead.
+  const handleUndo = useCallback(() => {
+    const target = undoContent()
+    if (target !== null) {
+      setContent(target)
+    } else {
+      // Nothing to undo — surface the saved version history instead.
       setActiveSheet('history')
-      return
     }
-    redoStackRef.current.push(payload)
-    await handleRestoreVersion(target.id)
-  }, [history.versions, buildPayload, handleRestoreVersion])
+  }, [undoContent])
 
-  const handleRedo = useCallback(async () => {
-    const snapshot = redoStackRef.current.pop()
-    if (!snapshot) {
-      Alert.alert('Nothing to redo')
-      return
-    }
-    applySnapshot(snapshot)
-  }, [applySnapshot])
+  const handleRedo = useCallback(() => {
+    const target = redoContent()
+    if (target !== null) setContent(target)
+  }, [redoContent])
 
   // ── Loading / missing states ─────────────────────────
   if (isLoading && !note) {
@@ -422,7 +412,10 @@ export default function NoteDetailScreen() {
               placeholder="Note"
               placeholderTextColor={secondaryColor}
               value={content}
-              onChangeText={setContent}
+              onChangeText={(text) => {
+                setContent(text)
+                recordUndo(text)
+              }}
               multiline
               textAlignVertical="top"
             />
@@ -499,9 +492,7 @@ export default function NoteDetailScreen() {
               styles.actionBarBtn,
               { opacity: pressed ? 0.6 : 1 },
             ]}
-            onPress={() => {
-              void handleUndo()
-            }}
+            onPress={handleUndo}
           >
             <MaterialIcons name="undo" size={22} color={textColor} />
           </Pressable>
@@ -510,9 +501,7 @@ export default function NoteDetailScreen() {
               styles.actionBarBtn,
               { opacity: pressed ? 0.6 : 1 },
             ]}
-            onPress={() => {
-              void handleRedo()
-            }}
+            onPress={handleRedo}
           >
             <MaterialIcons name="redo" size={22} color={textColor} />
           </Pressable>
