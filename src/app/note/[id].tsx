@@ -15,6 +15,7 @@ import {
 import { Stack, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 
 import type { ChecklistItem } from '@/components/ChecklistEditor'
 import { useTheme } from '@/hooks/use-theme'
@@ -22,7 +23,6 @@ import { Radius, Spacing } from '@/constants/theme'
 import { LabelPicker } from '@/components/LabelPicker'
 import { ChecklistEditor } from '@/components/ChecklistEditor'
 import { PalettePicker } from '@/components/PalettePicker'
-import { ImageAttachments } from '@/components/ImageAttachments'
 import { DrawingEditor } from '@/components/DrawingEditor'
 import { ActionSheet } from '@/components/ActionSheet'
 import { Ionicons } from '@expo/vector-icons'
@@ -61,6 +61,8 @@ export default function NoteDetailScreen() {
   const seededIdRef = useRef<string | null>(null)
   const originalContentRef = useRef<string | null>(null)
   const lastSavedRef = useRef<string>('')
+  const redoStackRef = useRef<Record<string, unknown>[]>([])
+  const isRestoreSaveRef = useRef(false)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [labels, setLabels] = useState<string[]>([])
@@ -159,6 +161,9 @@ export default function NoteDetailScreen() {
         setSaveStatus('saved')
         // Snapshot this version for history (server-first, local fallback).
         void saveVersion(noteIdRef.current!, payload, 'update')
+        // A fresh user edit invalidates the redo stack; restores don't.
+        if (!isRestoreSaveRef.current) redoStackRef.current = []
+        isRestoreSaveRef.current = false
         // Push the locally-saved note to the server when online
         if (isOnlineRef.current && userRef.current) {
           syncPendingNotes().catch((e) => console.warn('Auto-sync failed:', e))
@@ -198,7 +203,7 @@ export default function NoteDetailScreen() {
         allowsEditing: true,
         quality: 0.8,
       })
-      console.log(result)
+
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0]
         const uploadResult = await uploadImage({
@@ -275,6 +280,28 @@ export default function NoteDetailScreen() {
     }
   }, [])
 
+  // Apply a version snapshot back onto the editor. The auto-save effect
+  // then persists it, so restored state also lands in the local DB.
+  const applySnapshot = useCallback((snapshot: Record<string, unknown>) => {
+    // Mark the upcoming auto-save as a restore so it doesn't clear redo.
+    isRestoreSaveRef.current = true
+    if ('title' in snapshot) setTitle((snapshot.title as string | null) ?? '')
+    if ('content' in snapshot) {
+      originalContentRef.current = snapshot.content as string | null
+      setContent(htmlToPlainText(snapshot.content as string | null))
+    }
+    if ('labels' in snapshot) setLabels((snapshot.labels as string[]) ?? [])
+    if ('palette' in snapshot)
+      setPalette((snapshot.palette as string | null) ?? null)
+    if ('image' in snapshot)
+      setImage((snapshot.image as string | null) ?? null)
+    if ('checklist' in snapshot) setIsChecklist(Boolean(snapshot.checklist))
+    if ('checklistItems' in snapshot && snapshot.checklistItems != null) {
+      setIsChecklist(true)
+      setChecklistItems(parseItems(snapshot.checklistItems as string))
+    }
+  }, [])
+
   const handleRestoreVersion = useCallback(
     async (versionId: string) => {
       const snapshot = await history.restoreVersion(versionId)
@@ -282,26 +309,37 @@ export default function NoteDetailScreen() {
         Alert.alert('Error', 'Failed to restore version')
         return
       }
-      if ('title' in snapshot) setTitle((snapshot.title as string | null) ?? '')
-      if ('content' in snapshot) {
-        originalContentRef.current = snapshot.content as string | null
-        setContent(htmlToPlainText(snapshot.content as string | null))
-      }
-      if ('labels' in snapshot) setLabels((snapshot.labels as string[]) ?? [])
-      if ('palette' in snapshot)
-        setPalette((snapshot.palette as string | null) ?? null)
-      if ('image' in snapshot)
-        setImage((snapshot.image as string | null) ?? null)
-      if ('checklist' in snapshot) setIsChecklist(Boolean(snapshot.checklist))
-      if ('checklistItems' in snapshot && snapshot.checklistItems != null) {
-        setIsChecklist(true)
-        setChecklistItems(parseItems(snapshot.checklistItems as string))
-      }
-      // The auto-save effect picks up the restored state and persists it.
+      applySnapshot(snapshot)
       setActiveSheet(null)
     },
-    [history],
+    [history, applySnapshot],
   )
+
+  const handleUndo = useCallback(async () => {
+    if (!noteIdRef.current) return
+    const payload = buildPayload(noteIdRef.current)
+    // If the current state is already saved, the newest version equals it,
+    // so undo targets the one before it. Otherwise (unsaved edit) undo
+    // targets the newest saved version.
+    const offset = JSON.stringify(payload) === lastSavedRef.current ? 1 : 0
+    const target = history.versions[offset]
+    if (!target) {
+      // Nothing to undo — surface the version history instead.
+      setActiveSheet('history')
+      return
+    }
+    redoStackRef.current.push(payload)
+    await handleRestoreVersion(target.id)
+  }, [history.versions, buildPayload, handleRestoreVersion])
+
+  const handleRedo = useCallback(async () => {
+    const snapshot = redoStackRef.current.pop()
+    if (!snapshot) {
+      Alert.alert('Nothing to redo')
+      return
+    }
+    applySnapshot(snapshot)
+  }, [applySnapshot])
 
   // ── Loading / missing states ─────────────────────────
   if (isLoading && !note) {
@@ -378,9 +416,6 @@ export default function NoteDetailScreen() {
             onChangeText={setTitle}
             autoFocus
           />
-
-          <ImageAttachments image={image} onChange={setImage} />
-
           {!isChecklist && (
             <TextInput
               style={[styles.contentInput, { color: textColor }]}
@@ -428,7 +463,7 @@ export default function NoteDetailScreen() {
             {
               backgroundColor: containerBg,
               borderTopColor: 'rgba(0,0,0,0.08)',
-               paddingBottom: insets.bottom + Spacing.two,
+               paddingBottom: insets.bottom + Spacing.two - 10,
             },
           ]}
         >
@@ -441,9 +476,6 @@ export default function NoteDetailScreen() {
             onPress={() => {setActiveSheet('add')}}
           >
             <Ionicons name="add-circle-outline" size={22} color={textColor} />
-            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>
-              Add
-            </Text>
           </Pressable>
 
           {/* Theme / palette button */}
@@ -459,9 +491,6 @@ export default function NoteDetailScreen() {
               size={22}
               color={textColor}
             />
-            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>
-              Theme
-            </Text>
           </Pressable>
 
           {/* Version history button */}
@@ -470,12 +499,22 @@ export default function NoteDetailScreen() {
               styles.actionBarBtn,
               { opacity: pressed ? 0.6 : 1 },
             ]}
-            onPress={() => setActiveSheet('history')}
+            onPress={() => {
+              void handleUndo()
+            }}
           >
-            <Ionicons name="time-outline" size={22} color={textColor} />
-            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>
-              History
-            </Text>
+            <MaterialIcons name="undo" size={22} color={textColor} />
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionBarBtn,
+              { opacity: pressed ? 0.6 : 1 },
+            ]}
+            onPress={() => {
+              void handleRedo()
+            }}
+          >
+            <MaterialIcons name="redo" size={22} color={textColor} />
           </Pressable>
         </View>
       </View>
@@ -626,7 +665,7 @@ const styles = StyleSheet.create({
   actionBar: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    paddingTop: Spacing.two,
+    paddingTop: Spacing.two -10,
     paddingHorizontal: Spacing.four,
     gap: Spacing.one,
   },

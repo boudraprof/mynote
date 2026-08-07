@@ -16,13 +16,14 @@ import {
 import { Stack } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
+
 import type { ChecklistItem } from '@/components/ChecklistEditor'
 import { useTheme } from '@/hooks/use-theme'
 import { Radius, Spacing } from '@/constants/theme'
 import { LabelPicker } from '@/components/LabelPicker'
 import { ChecklistEditor } from '@/components/ChecklistEditor'
 import { PalettePicker } from '@/components/PalettePicker'
-import { ImageAttachments } from '@/components/ImageAttachments'
 import { DrawingEditor } from '@/components/DrawingEditor'
 import { ActionSheet } from '@/components/ActionSheet'
 import { Ionicons } from '@expo/vector-icons'
@@ -31,6 +32,8 @@ import { createLocalNote, updateLocalNote } from '@/lib/offline-notes'
 import { useNetwork } from '@/hooks/use-network'
 import { useAuth } from '@/providers/auth-provider'
 import { syncPendingNotes } from '@/hooks/use-sync'
+import { useNoteHistory } from '@/hooks/use-note-history'
+import { HistoryModal } from '@/components/HistoryModal'
 
 const paletteColorValues: Record<string, string> = {
   coral: '#f4a460',
@@ -58,7 +61,7 @@ const backgroundImages: Record<string, ImageSourcePropType> = {
   grocery_dark_thumb_0615: require('../../../assets/backgrounds/grocery_dark_thumb_0615.png'),
 }
 
-type ActiveSheet = 'add' | 'theme' | null
+type ActiveSheet = 'add' | 'theme' | 'history' | null
 
 export default function CreateNoteScreen() {
   const theme = useTheme()
@@ -76,6 +79,15 @@ export default function CreateNoteScreen() {
     isOnlineRef.current = isOnline
   }, [isOnline])
   const noteIdRef = useRef<string | null>(null)
+  const lastSavedRef = useRef<string>('')
+  const redoStackRef = useRef<Record<string, unknown>[]>([])
+  const isRestoreSaveRef = useRef(false)
+  const [historyNoteId, setHistoryNoteId] = useState<string | null>(null)
+  const history = useNoteHistory(historyNoteId)
+  const saveVersionRef = useRef(history.saveVersion)
+  useEffect(() => {
+    saveVersionRef.current = history.saveVersion
+  }, [history.saveVersion])
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [labels, setLabels] = useState<string[]>([])
@@ -89,6 +101,35 @@ export default function CreateNoteScreen() {
     'idle',
   )
 
+  const parseItems = (raw: string): ChecklistItem[] => {
+    try {
+      return JSON.parse(raw)
+    } catch {
+      return []
+    }
+  }
+
+  // Shared payload builder for auto-save, undo/redo and history snapshots.
+  const buildPayload = useCallback(
+    (noteId: string) => ({
+      id: noteId,
+      title: title || null,
+      content: isChecklist ? null : content || null,
+      labels: labels.length > 0 ? labels : undefined,
+      checklist: isChecklist || undefined,
+      checklistItems:
+        isChecklist && checklistItems.length > 0
+          ? JSON.stringify(checklistItems)
+          : undefined,
+      palette: palette || null,
+      image: image || null,
+    }),
+    [title, content, labels, isChecklist, checklistItems, palette, image],
+  )
+
+  // Auto-save: debounce editor changes and persist 800ms after the user
+  // stops typing. updateLocalNote is local-first, so this also works
+  // offline, and each saved change becomes a history snapshot.
   useEffect(() => {
     const hasContent =
       title ||
@@ -106,25 +147,24 @@ export default function CreateNoteScreen() {
     setSaveStatus('saving')
     const timer = setTimeout(async () => {
       try {
-        const noteData = {
-          title: title || null,
-          content: isChecklist ? null : content || null,
-          labels: labels.length > 0 ? labels : undefined,
-          checklist: isChecklist || undefined,
-          checklistItems:
-            isChecklist && checklistItems.length > 0
-              ? JSON.stringify(checklistItems)
-              : undefined,
-          palette: palette || null,
-          image: image || null,
+        const isNew = !noteIdRef.current
+        if (isNew) {
+          noteIdRef.current = await createLocalNote(buildPayload(''))
+          setHistoryNoteId(noteIdRef.current)
         }
-
-        if (noteIdRef.current) {
-          await updateLocalNote({ id: noteIdRef.current, ...noteData })
-        } else {
-          noteIdRef.current = await createLocalNote(noteData)
-        }
+        const payload = buildPayload(noteIdRef.current!)
+        await updateLocalNote(payload)
+        lastSavedRef.current = JSON.stringify(payload)
         setSaveStatus('saved')
+        // Snapshot this version for history (server-first, local fallback).
+        void saveVersionRef.current(
+          noteIdRef.current!,
+          payload,
+          isNew ? 'create' : 'update',
+        )
+        // A fresh user edit invalidates the redo stack; restores don't.
+        if (!isRestoreSaveRef.current) redoStackRef.current = []
+        isRestoreSaveRef.current = false
         // Push the locally-saved note to the server when online
         if (isOnlineRef.current && userRef.current) {
           syncPendingNotes().catch((e) => console.warn('Auto-sync failed:', e))
@@ -135,7 +175,16 @@ export default function CreateNoteScreen() {
     }, 800)
 
     return () => clearTimeout(timer)
-  }, [title, content, labels, isChecklist, checklistItems, palette, image])
+  }, [
+    title,
+    content,
+    labels,
+    isChecklist,
+    checklistItems,
+    palette,
+    image,
+    buildPayload,
+  ])
 
   // ── Image picking ──────────────────────────────────────────
   const pickFromGallery = useCallback(async () => {
@@ -231,6 +280,65 @@ export default function CreateNoteScreen() {
     }
   }, [])
 
+  // Apply a version snapshot back onto the editor. The auto-save effect
+  // then persists it, so restored state also lands in the local DB.
+  const applySnapshot = useCallback((snapshot: Record<string, unknown>) => {
+    // Mark the upcoming auto-save as a restore so it doesn't clear redo.
+    isRestoreSaveRef.current = true
+    if ('title' in snapshot) setTitle((snapshot.title as string | null) ?? '')
+    if ('content' in snapshot)
+      setContent((snapshot.content as string | null) ?? '')
+    if ('labels' in snapshot) setLabels((snapshot.labels as string[]) ?? [])
+    if ('palette' in snapshot)
+      setPalette((snapshot.palette as string | null) ?? null)
+    if ('image' in snapshot)
+      setImage((snapshot.image as string | null) ?? null)
+    if ('checklist' in snapshot) setIsChecklist(Boolean(snapshot.checklist))
+    if ('checklistItems' in snapshot && snapshot.checklistItems != null) {
+      setIsChecklist(true)
+      setChecklistItems(parseItems(snapshot.checklistItems as string))
+    }
+  }, [])
+
+  const handleRestoreVersion = useCallback(
+    async (versionId: string) => {
+      const snapshot = await history.restoreVersion(versionId)
+      if (!snapshot) {
+        Alert.alert('Error', 'Failed to restore version')
+        return
+      }
+      applySnapshot(snapshot)
+      setActiveSheet(null)
+    },
+    [history, applySnapshot],
+  )
+
+  const handleUndo = useCallback(async () => {
+    if (!noteIdRef.current) return
+    const payload = buildPayload(noteIdRef.current)
+    // If the current state is already saved, the newest version equals it,
+    // so undo targets the one before it. Otherwise (unsaved edit) undo
+    // targets the newest saved version.
+    const offset = JSON.stringify(payload) === lastSavedRef.current ? 1 : 0
+    const target = history.versions[offset]
+    if (!target) {
+      // Nothing to undo — surface the version history instead.
+      setActiveSheet('history')
+      return
+    }
+    redoStackRef.current.push(payload)
+    await handleRestoreVersion(target.id)
+  }, [history.versions, buildPayload, handleRestoreVersion])
+
+  const handleRedo = useCallback(async () => {
+    const snapshot = redoStackRef.current.pop()
+    if (!snapshot) {
+      Alert.alert('Nothing to redo')
+      return
+    }
+    applySnapshot(snapshot)
+  }, [applySnapshot])
+
   const bgName = palette ? palette.split('/').pop()?.replace(/\.svg$/, '') : null
   const isImageBg = bgName ? backgroundImages[bgName] !== undefined : false
   const paletteBg = palette && !isImageBg ? paletteColorValues[palette] : null
@@ -249,7 +357,7 @@ export default function CreateNoteScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: '',
+          title: 'Add note',
           headerStyle: { backgroundColor: containerBg },
           headerTintColor: textColor,
           headerShadowVisible: false,
@@ -277,8 +385,6 @@ export default function CreateNoteScreen() {
             onChangeText={setTitle}
             autoFocus
           />
-
-          <ImageAttachments image={image} onChange={setImage} />
 
           {!isChecklist && (
             <TextInput
@@ -340,9 +446,6 @@ export default function CreateNoteScreen() {
             onPress={() => {setActiveSheet('add')}}
           >
             <Ionicons name="add-circle-outline" size={22} color={textColor} />
-            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>
-              Add
-            </Text>
           </Pressable>
 
           {/* Theme / palette button */}
@@ -358,9 +461,28 @@ export default function CreateNoteScreen() {
               size={22}
               color={textColor}
             />
-            <Text style={[styles.actionBarLabel, { color: secondaryColor }]}>
-              Theme
-            </Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionBarBtn,
+              { opacity: pressed ? 0.6 : 1 },
+            ]}
+            onPress={() => {
+              void handleUndo()
+            }}
+          >
+            <MaterialIcons name="undo" size={22} color={textColor} />
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionBarBtn,
+              { opacity: pressed ? 0.6 : 1 },
+            ]}
+            onPress={() => {
+              void handleRedo()
+            }}
+          >
+            <MaterialIcons name="redo" size={22} color={textColor} />
           </Pressable>
         </View>
       </View>
@@ -467,6 +589,15 @@ export default function CreateNoteScreen() {
           />
         </View>
       </ActionSheet>
+
+      {/* ── Version history ────────────────────────────── */}
+      <HistoryModal
+        visible={activeSheet === 'history'}
+        onClose={() => setActiveSheet(null)}
+        isLoading={history.isLoading}
+        versions={history.versions}
+        onRestoreVersion={handleRestoreVersion}
+      />
 
       {/* ── Drawing editor ─────────────────────────────── */}
       <DrawingEditor
