@@ -48,7 +48,7 @@ import React, {
   useState,
 } from "react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
-import { logger } from "better-auth";
+import logger from "@/utils/logger";
 
 import { cn } from "@/utils";
 import {
@@ -382,7 +382,6 @@ export default function NotesPage({
     setImageUploadProgress(0);
     try {
       const { data: r } = await uploadImage.mutateAsync(formData);
-      console.log("NotesPage:", r);
       setForm((prev) => ({ ...prev, image: r.url }));
     } catch {
       toast("Failed to upload image.");
@@ -588,8 +587,6 @@ export default function NotesPage({
   const colors = isColor && "text-black!";
   const cls = cn(form.palette && colors);
   const mess = verifyEmailMessage.error || verifyEmailMessage.success;
-  console.log(form.content?.length);
-
   return (
     <>
       {mess && (

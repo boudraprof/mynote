@@ -1,58 +1,65 @@
-/**
- * Simple structured logger for the application.
- * In production, consider replacing with pino for better performance.
- */
+import pino, { type DestinationStream } from "pino";
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+type LogLevel = "debug" | "info" | "warn" | "error";
 
-const LOG_LEVELS: Record<LogLevel, number> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
+type AppLogger = {
+  debug(message: string, context?: string): void;
+  info(message: string, context?: string): void;
+  warn(message: string, context?: string): void;
+  error(message: string, error?: unknown, context?: string): void;
+};
+
+const LOG_LEVELS = new Set(["debug", "info", "warn", "error"]);
+
+function isLogLevel(value: string | undefined): value is LogLevel {
+  return value !== undefined && LOG_LEVELS.has(value);
 }
 
-const currentLevel: LogLevel = (process.env.LOG_LEVEL as LogLevel) || 'info'
+export function createLogger(
+  options: { level?: string; destination?: DestinationStream } = {},
+): AppLogger {
+  const configuredLevel =
+    options.level ??
+    (typeof process === "undefined" ? undefined : process.env.LOG_LEVEL);
+  const level: LogLevel = isLogLevel(configuredLevel)
+    ? configuredLevel
+    : "info";
 
-function shouldLog(level: LogLevel): boolean {
-  return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel]
+  if (configuredLevel && !isLogLevel(configuredLevel)) {
+    console.warn(
+      `[logger] Invalid LOG_LEVEL "${configuredLevel}", defaulting to "info".`,
+    );
+  }
+
+  const backend = pino(
+    {
+      level,
+      browser: { asObject: true },
+    },
+    options.destination,
+  );
+
+  return {
+    debug(message, context) {
+      backend.debug(context ? { context } : {}, message);
+    },
+    info(message, context) {
+      backend.info(context ? { context } : {}, message);
+    },
+    warn(message, context) {
+      backend.warn(context ? { context } : {}, message);
+    },
+    error(message, error, context) {
+      const fields = {
+        ...(context ? { context } : {}),
+        ...(error !== undefined ? { err: error } : {}),
+      };
+      backend.error(fields, message);
+    },
+  };
 }
 
-function formatMessage(level: LogLevel, message: string, context?: string): string {
-  const timestamp = new Date().toISOString()
-  const prefix = context ? `[${context}]` : ''
-  return `${timestamp} ${level.toUpperCase()} ${prefix} ${message}`
-}
+const logger = createLogger();
 
-export const logger = {
-  debug(message: string, context?: string): void {
-    if (shouldLog('debug')) {
-      console.debug(formatMessage('debug', message, context))
-    }
-  },
-
-  info(message: string, context?: string): void {
-    if (shouldLog('info')) {
-      console.info(formatMessage('info', message, context))
-    }
-  },
-
-  warn(message: string, context?: string): void {
-    if (shouldLog('warn')) {
-      console.warn(formatMessage('warn', message, context))
-    }
-  },
-
-  error(message: string, error?: unknown, context?: string): void {
-    if (shouldLog('error')) {
-      const errorDetails = error instanceof Error 
-        ? `\n${error.stack}` 
-        : error 
-          ? `\n${JSON.stringify(error)}` 
-          : ''
-      console.error(formatMessage('error', message + errorDetails, context))
-    }
-  },
-}
-
-export default logger
+export { logger };
+export default logger;
