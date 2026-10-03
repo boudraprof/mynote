@@ -359,21 +359,6 @@ export default function MainRender({
       </div>
     ));
 
-  // const isNotePath = useMatchPath('auth')
-
-  /**
-     *  TODO: setup app/page.tsx to be good look
-        TODO: fix image profile max size error
-        TODO: fix grid button not working
-        
-     this on finsh:
-     *  TODO: loggers should save it to file or find good tools for debaging
-     *  TODO: APIs, validtion iusse, setup trycatch block, fix error route should retrun an array
-     *  TODO: check better-auth.com doc for checking good practice Securety, when the app setup is finshed
-     * 
-     * 
-     */
-
   return (
     <div>
       {searchedText && isPending ? (
