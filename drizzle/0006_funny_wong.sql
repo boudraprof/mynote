@@ -1,0 +1,1 @@
+ALTER TABLE "notes" ADD COLUMN "palette" varchar(100);
