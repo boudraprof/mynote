@@ -11,7 +11,7 @@ import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { geistMono, geistSans } from "@/utils/fonts";
 import { THEME_COLORS } from "@/utils/bgs-colors";
-import { OfflineIndicator } from "./components";
+import { OfflineIndicator } from "./components/offline-indicator";
 import Providers from "./components/providers";
 
 

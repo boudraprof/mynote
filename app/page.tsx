@@ -112,8 +112,8 @@ export default function HomePage() {
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 pt-6 lg:px-8">
         <header className="flex items-center justify-between rounded-full border border-slate-200/80 bg-white/80 px-4 py-3 shadow-[0_1px_0_rgba(15,23,42,0.04)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/50">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 dark:bg-white dark:text-slate-900">
-              M
+            <div className="flex h-9 w-9 items-center justify-center">
+              <Image alt="Logo" src={'/logo128.png'}  width={20} height={20}/>
             </div>
             <div>
               <p className="text-sm font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
@@ -142,8 +142,12 @@ export default function HomePage() {
             </Link>
           </nav>
           <div className="flex items-center gap-3">
-            {data?.user ? (
-              <Link href={"/notes"} className="flex items-center gap-2">
+            {isPending ? (
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                Loading...
+              </span>
+            ) : data?.user ? (
+              <Link href="/notes" className="flex items-center gap-2">
                 <span>
                   {data.user.image ? (
                     <Image
@@ -154,7 +158,9 @@ export default function HomePage() {
                       alt="Profile Image"
                     />
                   ) : (
-                    <p>{data.user.name[0].toUpperCase()}</p>
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                      {data.user.name[0]?.toUpperCase()}
+                    </span>
                   )}
                 </span>
                 <p>{data.user.name}</p>
@@ -419,8 +425,8 @@ export default function HomePage() {
 
         <footer className="text-center text-sm border-t border-slate-200/50 dark:border-slate-800/50 py-10 mt-10">
           <div className="flex items-center justify-center gap-2 mb-4">
-             <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-900 text-[10px] font-semibold text-white dark:bg-white dark:text-slate-900 shadow-sm shadow-slate-900/20">
-               M
+             <div className="flex h-6 w-6 items-center justify-center">
+               <Image alt="Logo" src={'/logo128.png'}  width={20} height={20}/>
              </div>
              <span className="font-semibold tracking-widest text-slate-500 uppercase">My Notes</span>
           </div>
