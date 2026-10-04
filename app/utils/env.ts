@@ -4,7 +4,7 @@ import { z } from 'zod'
 // Lightweight origin parsing — safe to import from client and server code.
 // ---------------------------------------------------------------------------
 
-const DEFAULT_ORIGINS = 'http://localhost:3000,http://localhost:8081,http://192.168.122.1:3000,exp://192.168.1.130:8081'
+const DEFAULT_ORIGINS = 'http://localhost:3000,https://mynote-demo.vercel.app'
 
 export const parseOrigins = (origins: string): Array<string> => {
   return origins
