@@ -16,6 +16,7 @@ import { deleteImage } from "@/utils/image-storage";
 import { redirect } from "next/navigation";
 
 export const auth = betterAuth({
+  
   appName: "My Notes",
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_BASE_URL,
@@ -25,6 +26,7 @@ export const auth = betterAuth({
     deleteUser: { enabled: true },
     changeEmail: { enabled: true, updateEmailWithoutVerification: false },
   },
+
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {

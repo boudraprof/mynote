@@ -237,6 +237,8 @@ You can run PostgreSQL locally or start the included PostgreSQL container via Do
 docker compose up postgres -d
 ```
 
+To use Neon instead, set `DATABASE_URL` in `.env` to your Neon PostgreSQL connection string. Keep the `sslmode=require` option from Neon, and use the pooled connection string for the application.
+
 Once the database is running:
 
 1. **Run Drizzle Schema Migrations:**
@@ -302,7 +304,7 @@ Here is a reference of the configuration options available in `.env`:
 | `BETTER_AUTH_SECURE_COOKIES` | No | `false` | Set to `true` in production to enforce HTTPS-only cookies. |
 | `BETTER_AUTH_COOKIE_SAMESITE`| No | `lax` | SameSite cookie policy (`lax` or `strict`). |
 | `ALLOWED_ORIGINS` | No | `http://localhost:3000,http://localhost:8081` | Comma-separated CORS allowed origins. |
-| `VITE_SENTRY_DSN` | No | — | Sentry DSN for frontend and backend error monitoring. |
+| `SENTRY_DSN` | No | — | Sentry DSN for frontend and backend error monitoring. |
 
 ---
 
