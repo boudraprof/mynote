@@ -35,7 +35,7 @@ export const allowedOrigins = parseOrigins(
 
 const envSchema = z.object({
   // Database
-  DATABASE_URL: z.string().url('Invalid database URL'),
+  DATABASE_URL: z.url('Invalid database URL'),
 
   // Better Auth server
   BETTER_AUTH_SECRET: z.string().min(1, 'Better Auth secret is required'),
@@ -52,7 +52,7 @@ const envSchema = z.object({
     .default('lax'),
 
   // Better Auth client (Vite — available on both server and client via process.env / import.meta.env)
-  VITE_BETTER_AUTH_BASE_URL: z.string().url('Invalid Vite Better Auth base URL'),
+  VITE_BETTER_AUTH_BASE_URL: z.url('Invalid Vite Better Auth base URL'),
   VITE_BETTER_AUTH_BASE_PATH: z.string().default('v1/api'),
 
   // Google OAuth (server)
@@ -62,8 +62,8 @@ const envSchema = z.object({
   VITE_GOOGLE_CLIENT_ID: z.string().optional(),
 
   // App URLs
-  VITE_APP_URL: z.string().url('Invalid app URL'),
-  APP_URL: z.string().url('Invalid app URL'),
+  VITE_APP_URL: z.url('Invalid app URL'),
+  APP_URL: z.url('Invalid app URL'),
 
   // CORS / Security
   ALLOWED_ORIGINS: z.string(),
