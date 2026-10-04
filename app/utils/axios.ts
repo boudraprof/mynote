@@ -2,7 +2,7 @@ import axios from 'axios'
 import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 
 const api: AxiosInstance = axios.create({
-  baseURL: `${process.env.APP_URL ?? 'http://localhost:3000/'}/api/v1` ,
+  baseURL: `${process.env.APP_URL ?? 'https://mynote-demo.vercel.app'}/api/v1` ,
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
   proxy: false,
