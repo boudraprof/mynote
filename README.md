@@ -24,6 +24,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [Live Demo](#-live-demo)
 - [Key Features](#-key-features)
 - [Tech Stack](#-tech-stack)
 - [Architecture & Directory Structure](#-architecture--directory-structure)
@@ -49,6 +50,16 @@
 **My Notes** is an open-source, self-hostable note-taking web application inspired by Google Keep, designed for speed, simplicity, and flexibility. It combines a distraction-free note editor, rich-text markdown formatting, interactive checklists, drawings, color-coded categorization, full offline synchronization, and multi-user collaboration into a cohesive, modern workspace.
 
 Whether you're organizing daily thoughts, managing task lists, sketching ideas, or collaborating with others, **My Notes** provides a fast, resilient experience both on desktop and on mobile devices.
+
+---
+
+## 🌐 Live Demo
+
+Try the app at [mynote-demo.vercel.app](https://mynote-demo.vercel.app/).
+
+**Demo account**
+- Email: `demo@demo.com`
+- Password: `password`
 
 ---
 
