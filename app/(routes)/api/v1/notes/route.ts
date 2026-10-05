@@ -24,7 +24,7 @@ import { corsJson } from "@/utils/cors";
 import { requireApiAuth } from "@/utils/api";
 import { deleteImage } from "@/utils/image-storage";
 import { getUserEmail } from "@/utils/share";
-import { NOTE_STATUS } from "@/utils/bgs-colors";
+import { NOTE_STATUS } from "@/utils/status";
 import { getStatusIdByName } from "@/utils/status.server";
 import { sanitizeNoteHtml } from "@/utils/sanitize";
 import { purgeExpiredTrash } from "@/utils/trash.server";

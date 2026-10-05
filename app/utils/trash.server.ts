@@ -1,7 +1,7 @@
 import { and, eq, lt } from 'drizzle-orm'
 
 import { notesTable } from '@/db/schema'
-import { NOTE_STATUS } from '@/utils/bgs-colors'
+import { NOTE_STATUS } from '@/utils/status'
 import { db } from '@/utils/config'
 import { deleteImage } from '@/utils/image-storage'
 import logger from '@/utils/logger'

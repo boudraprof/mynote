@@ -1,4 +1,5 @@
-import type { NOTE_STATUS, THEME_COLORS } from './utils/bgs-colors'
+import type { NOTE_STATUS } from './utils/status'
+import type { THEME_COLORS } from './utils/bgs-colors'
 import type { notesTable } from './db/schema'
 
 export type NoteFormData = Partial<NotesInsert> & {

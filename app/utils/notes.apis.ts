@@ -1,7 +1,7 @@
 import api from './axios'
 import type { NotesInsert } from '../types'
 import type { NoteStatusType } from '@/types'
-import { NOTE_STATUS } from '@/utils/bgs-colors'
+import { NOTE_STATUS } from '@/utils/status'
 
 /**
  * Move a note between statuses (active / archived / trash) via a single PUT.

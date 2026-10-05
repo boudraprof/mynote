@@ -21,7 +21,7 @@ import { NotesSkeleton } from "@/components/notes-skeleton";
 import { listViewMode, search, spinner } from "@/utils/atoms";
 import { useMatchPath } from "@/utils/client-only";
 import { cn } from "@/utils";
-import { NOTE_STATUS_LABELS } from "@/utils/bgs-colors";
+import { NOTE_STATUS_LABELS } from "@/utils/status";
 import api from "@/utils/axios";
 import { notesKeys, searchKeys } from "@/utils/query-keys";
 import logger from "@/utils/logger";

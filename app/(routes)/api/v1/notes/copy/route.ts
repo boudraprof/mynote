@@ -7,7 +7,7 @@ import logger from "@/utils/logger";
 import { corsJson } from "@/utils/cors";
 import { requireApiAuth } from "@/utils/api";
 import { sanitizeNoteHtml } from "@/utils/sanitize";
-import { NOTE_STATUS } from "@/utils/bgs-colors";
+import { NOTE_STATUS } from "@/utils/status";
 import { getStatusIdByName } from "@/utils/status.server";
 import { validateBody } from "@/utils/validation";
 import { apiNoteSchema, syncNoteLabels } from "@/utils/server-only";

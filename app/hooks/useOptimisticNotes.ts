@@ -3,7 +3,7 @@ import { toast } from 'react-toastify'
 import type { InfiniteData } from '@tanstack/react-query'
 
 import type { NoteFormData, Notes, NotesInsert } from '@/types'
-import { NOTE_STATUS } from '@/utils/bgs-colors'
+import { NOTE_STATUS } from '@/utils/status'
 import api from '@/utils/axios'
 import {
   moveToArchive as archiveNote,

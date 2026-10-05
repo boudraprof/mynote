@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm'
-import type {NoteStatusType} from '@/types';
-import { NOTE_STATUS  } from '@/utils/bgs-colors'
-import { db } from '@/utils/config'
-import { noteStatus } from '@/db/schema'
+import type { NoteStatusType } from '../types'
+import { NOTE_STATUS } from './status'
+import { db } from './config'
+import { noteStatus } from '../db/schema'
 
 // Simple in-memory cache for status lookups
 const statusCache = new Map<string, string>()
@@ -12,7 +12,7 @@ async function seedNoteStatus() {
     console.log('🌱 Starting note status seed...')
 
     // Check if 'active' status already exists
-    for (const value in NOTE_STATUS) {
+    for (const value of Object.values(NOTE_STATUS)) {
       const existingStatus = await db
         .select()
         .from(noteStatus)

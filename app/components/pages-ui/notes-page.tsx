@@ -55,8 +55,8 @@ import {
   paletteColorValues,
   notesPaletteColors,
   backgroundImages,
-  NOTE_STATUS,
 } from "@/utils/bgs-colors";
+import { NOTE_STATUS } from "@/utils/status";
 import ChecklistEditor, { ChecklistItem } from "../check-list-editor";
 import DrawingCanvas from "../drawing-canvas";
 import { HistoryDialog } from "../history-dialog";

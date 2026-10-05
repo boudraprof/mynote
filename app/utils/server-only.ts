@@ -4,7 +4,7 @@ import { notesLabels, noteLabels } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { db } from "./config";
 import z from "zod";
-import { NOTE_STATUS } from "./bgs-colors";
+import { NOTE_STATUS } from "./status";
 import { corsJson } from "./cors";
 
 

@@ -1,4 +1,4 @@
-import { NOTE_STATUS } from "./bgs-colors";
+import { NOTE_STATUS } from "./status";
 import type { NoteStatusType } from "../types";
 
 export function getNoteStatusForSave(
