@@ -30,6 +30,7 @@ import { sanitizeNoteHtml } from "@/utils/sanitize";
 import { purgeExpiredTrash } from "@/utils/trash.server";
 import { validateBody, validateSearchParams } from "@/utils/validation";
 import { apiNoteSchema, syncNoteLabels } from "@/utils/server-only";
+import { isEmptyNoteInput } from "@/utils/note-input";
 
 async function fetchNoteLabels(
   noteIds: Array<string>,
@@ -228,11 +229,7 @@ export async function POST(request: NextRequest) {
     const validated = await validateBody(request, createNoteRequestSchema);
     if ("response" in validated) return validated.response;
 
-    if (
-      !validated.data.checklistItems &&
-      !validated.data.content &&
-      !validated.data.title
-    ) {
+    if (isEmptyNoteInput(validated.data)) {
       return corsJson(request, { error: false, message: 'Empty Inputs' }, { status: 200 });
     }
     const { statusName, ...noteFields } = validated.data;
