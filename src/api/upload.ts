@@ -33,11 +33,15 @@ export async function uploadImage(
   try {
     const base64 = await readAsStringAsync(file.uri, { encoding: 'base64' })
 
-    const { data } = await api.post<UploadResult>('/upload-image', {
-      image: base64,
-      type: uploadType,
-      mimeType: file.type,
-    })
+    const { data } = await api.post<UploadResult>(
+      '/upload-image',
+      {
+        image: base64,
+        type: uploadType,
+        mimeType: file.type,
+      },
+      { timeout: 60_000 },
+    )
 
     if (data.success === false) {
       return data
