@@ -3,9 +3,9 @@
   "version": "10.0.1",
   "private": true,
   "scripts": {
-    "build": "next build",
-    "start": "next start",
-    "dev": "next dev",
+    "build": "NODE_USE_ENV_PROXY=1 next build",
+    "start": "NODE_USE_ENV_PROXY=1 next start",
+    "dev": "NODE_USE_ENV_PROXY=1 next dev",
     "mobile:dev": "cd mobile-app/ && npm start",
     "test": "vitest run",
     "test:watch": "vitest",

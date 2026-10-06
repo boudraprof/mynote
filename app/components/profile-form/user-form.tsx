@@ -135,8 +135,9 @@ export default function UserForm({
             formData.append('image', val.image)
             const {
               data: { url },
-            } = await api.post('/upload-image', formData, {
-              headers: { 'Content-Type': 'multipart/form-data' },
+        } = await api.post('/upload-image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 60_000,
               onUploadProgress: (e) => {
                 if (e.total) {
                   onImageUploadProgress?.(

@@ -5,7 +5,12 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   experimental: {
     useOffline: true,
-  }
+  },
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'ik.imagekit.io' },
+    ],
+  },
 }
  
 export default nextConfig

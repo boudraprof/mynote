@@ -133,6 +133,7 @@ export default function NotesPage({
     mutationFn: (formData: FormData) =>
       api.post("/upload-image", formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        timeout: 60_000,
         onUploadProgress: (e) => {
           if (e.total) {
             setImageUploadProgress(Math.round((e.loaded / e.total) * 100));
