@@ -6,7 +6,7 @@ const api: AxiosInstance = axios.create({
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
   proxy: false,
-  withCredentials: true, // important for better-auth cookies
+  withCredentials: true, 
 })
 
 const setAuthToken = async (config: InternalAxiosRequestConfig) => {

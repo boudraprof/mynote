@@ -34,7 +34,12 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-uploads/*
+!.env.example
+
+# uploads (keep the directory tree, never the content)
+/uploads/**
+!/uploads/*/
+!/uploads/*/.thumbnails/
 
 # vercel
 .vercel

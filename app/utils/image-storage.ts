@@ -1,6 +1,6 @@
-import * as cloudinaryImpl from './image-storage-cloudinary'
+import * as imagekitImpl from './image-storage-imagekit'
 import * as localImpl from './image-storage-local'
-import { isCloudinaryConfigured } from '@/utils/cloudinary'
+import { isImageKitConfigured } from '@/utils/imagekit'
 
 // ---------------------------------------------------------------------------
 // Re-export shared types & constants (safe for client code)
@@ -20,19 +20,19 @@ export {
 } from '@/utils/image-storage-utils'
 
 // ---------------------------------------------------------------------------
-// Choose backend: Cloudinary when configured, otherwise local sharp+fs
+// Choose backend: ImageKit when configured, otherwise local sharp+fs
 // ---------------------------------------------------------------------------
 
-const useCloudinary = isCloudinaryConfigured()
+const useImageKit = isImageKitConfigured()
 
-if (!useCloudinary) {
+if (!useImageKit) {
   console.warn(
-    '[image-storage] Cloudinary not configured — using local filesystem storage via sharp. ' +
-    'Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to enable Cloudinary.',
+    '[image-storage] ImageKit not configured — using local filesystem storage via sharp. ' +
+    'Set IMAGEKIT_PRIVATE_KEY and IMAGEKIT_URL_ENDPOINT to enable ImageKit.',
   )
 }
 
-const impl = useCloudinary ? cloudinaryImpl : localImpl
+const impl = useImageKit ? imagekitImpl : localImpl
 
 export const saveImage = impl.saveImage
 export const deleteImage = impl.deleteImage

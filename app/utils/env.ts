@@ -79,10 +79,9 @@ const envSchema = z.object({
   SMTP_FROM: z.string().optional().default('noreply@example.com'),
   SMTP_FROM_NAME: z.string().optional(),
 
-  // Cloudinary (image uploads)
-  CLOUDINARY_CLOUD_NAME: z.string().optional(),
-  CLOUDINARY_API_KEY: z.string().optional(),
-  CLOUDINARY_API_SECRET: z.string().optional(),
+  // ImageKit (image uploads)
+  IMAGEKIT_PRIVATE_KEY: z.string().optional(),
+  IMAGEKIT_URL_ENDPOINT: z.string().optional(),
 
   // Sentry (error tracking)
   VITE_SENTRY_DSN: z.string().optional(),

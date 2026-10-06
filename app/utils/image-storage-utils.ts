@@ -14,7 +14,7 @@ export const ALLOWED_MIME_TYPES = [
   'image/avif',
 ] as const
 
-/** Supported image sub-directories (Cloudinary folders) */
+/** Supported image sub-directories (ImageKit folders) */
 export const UPLOAD_TYPES = ['notes', 'avatars', 'drawings'] as const
 export type UploadType = (typeof UPLOAD_TYPES)[number]
 
@@ -107,7 +107,7 @@ export function isValidImageMagicBytes(buffer: Uint8Array): boolean {
 // ---------------------------------------------------------------------------
 
 export interface ImageSaveResult {
-  /** Full-size image URL (e.g. Cloudinary secure URL) */
+  /** Full-size image URL (e.g. ImageKit secure URL) */
   url: string
   /** Thumbnail URL (null if type has no thumbnail, e.g. drawings) */
   thumbnailUrl: string | null
@@ -128,11 +128,11 @@ export interface SaveImageOptions {
   buffer: Buffer
   /** Original filename from the upload */
   originalName?: string
-  /** Type of upload (determines Cloudinary folder and thumbnail size) */
+  /** Type of upload (determines ImageKit folder and thumbnail size) */
   type?: UploadType
-  /** Ignored with Cloudinary — transformations are applied via URL params */
+  /** Ignored with ImageKit — transformations are applied via URL params */
   maxWidth?: number
-  /** Ignored with Cloudinary — format & quality are handled via URL params */
+  /** Ignored with ImageKit — format & quality are handled via URL params */
   quality?: number
 }
 

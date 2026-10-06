@@ -80,7 +80,7 @@ Try the app at [mynote-demo.vercel.app](https://mynote-demo.vercel.app/).
   - Integrated drawing canvas to capture sketches, handwritten diagrams, and doodles directly inside your notes.
 
 - **📸 Flexible Image Attachments**
-  - Dual-mode image storage: seamlessly toggle between **Cloudinary** cloud hosting or **Local disk storage** with optimized image delivery via Sharp.
+  - Dual-mode image storage: seamlessly toggle between **ImageKit** cloud hosting or **Local disk storage** with optimized image delivery via Sharp.
 
 - **🔄 Version History & Snapshots**
   - Automatic note revision tracking with timestamped snapshots.
@@ -138,7 +138,7 @@ Try the app at [mynote-demo.vercel.app](https://mynote-demo.vercel.app/).
 | **ORM & Migrations** | [Drizzle ORM](https://orm.drizzle.team/), [Drizzle Kit](https://orm.drizzle.team/kit-docs/overview) |
 | **Authentication** | [Better Auth](https://better-auth.com/) (Email/Password, Google OAuth, Sessions) |
 | **Email Service** | [Nodemailer](https://nodemailer.com/) |
-| **Storage & Processing** | [Cloudinary SDK](https://cloudinary.com/) & [Sharp](https://sharp.pixelplumbing.com/) (local fallback) |
+| **Storage & Processing** | [ImageKit SDK](https://imagekit.io/) & [Sharp](https://sharp.pixelplumbing.com/) (local fallback) |
 | **Sanitization & Validation** | [DOMPurify](https://github.com/cure53/DOMPurify), [Zod](https://zod.dev/) |
 | **Error Monitoring** | [Sentry React SDK](https://sentry.io/) |
 
@@ -308,9 +308,8 @@ Here is a reference of the configuration options available in `.env`:
 | `SMTP_PASS` | No | — | SMTP password. |
 | `SMTP_FROM` | No | `noreply@example.com` | "From" email address. |
 | `SMTP_FROM_NAME` | No | `My Notes` | "From" sender name. |
-| `CLOUDINARY_CLOUD_NAME` | No | — | Cloudinary cloud name (falls back to local filesystem if unset). |
-| `CLOUDINARY_API_KEY` | No | — | Cloudinary API key. |
-| `CLOUDINARY_API_SECRET` | No | — | Cloudinary API secret. |
+| `IMAGEKIT_PRIVATE_KEY` | No | — | ImageKit private API key (falls back to local filesystem if unset). |
+| `IMAGEKIT_URL_ENDPOINT` | No | — | ImageKit URL endpoint, e.g. `https://ik.imagekit.io/your_imagekit_id`. |
 | `BETTER_AUTH_TRUSTED_ORIGINS`| No | `http://localhost:3000,http://localhost:8081` | Comma-separated list of origins trusted for auth cookies/CORS. |
 | `BETTER_AUTH_SECURE_COOKIES` | No | `false` | Set to `true` in production to enforce HTTPS-only cookies. |
 | `BETTER_AUTH_COOKIE_SAMESITE`| No | `lax` | SameSite cookie policy (`lax` or `strict`). |
@@ -428,7 +427,7 @@ All application endpoints are versioned under `/api/v1/`:
 | `POST` | `/api/v1/labels` | Create a new label |
 | `DELETE`| `/api/v1/labels` | Delete a label |
 | `GET` | `/api/v1/search?q=:query` | Full-text search across titles, contents, and labels |
-| `POST` | `/api/v1/upload-image` | Upload image file (supports Cloudinary or local storage) |
+| `POST` | `/api/v1/upload-image` | Upload image file (supports ImageKit or local storage) |
 
 ---
 
