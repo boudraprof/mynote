@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -18,6 +19,7 @@ import {
   Users
 } from "lucide-react";
 import Image from "next/image";
+import { toProxiedImageSrc } from "./utils/image-url";
 
 import { useSession } from "./utils/auth-client";
 
@@ -104,6 +106,23 @@ const services = [
 
 export default function HomePage() {
   const { data, isPending } = useSession();
+  const [avatarError, setAvatarError] = useState(false);
+
+  const avatar = data?.user.image && !avatarError ? (
+    <Image
+      unoptimized
+      className="size-9 rounded-full"
+      src={toProxiedImageSrc(data.user.image)}
+      width={20}
+      height={20}
+      alt="Profile Image"
+      onError={() => setAvatarError(true)}
+    />
+  ) : data?.user.image ? (
+    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+      {data.user.name[0]?.toUpperCase()}
+    </span>
+  ) : null;
 
   return (
     <main 
@@ -149,19 +168,12 @@ export default function HomePage() {
             ) : data?.user ? (
               <Link href="/notes" className="flex items-center gap-2">
                 <span>
-                  {data.user.image ? (
-                    <Image
-                      className="size-9 rounded-full"
-                      src={data.user.image}
-                      width={20}
-                      height={20}
-                      alt="Profile Image"
-                    />
-                  ) : (
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-                      {data.user.name[0]?.toUpperCase()}
-                    </span>
-                  )}
+                  {avatar ??
+                    (data.user.image ? null : (
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                        {data.user.name[0]?.toUpperCase()}
+                      </span>
+                    ))}
                 </span>
                 <p>{data.user.name}</p>
               </Link>

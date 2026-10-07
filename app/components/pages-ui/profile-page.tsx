@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Loader2, Trash2, Upload, User } from 'lucide-react'
 import { toast } from 'react-toastify'
 import Image from 'next/image'
+import { toProxiedImageSrc } from '@/utils/image-url'
 import { isValid } from 'date-fns'
 import format from '@/utils/date'
 
@@ -123,6 +124,7 @@ export default function ProfilePage() {
               <Image
                 className="size-40 rounded-full border cursor-pointer"
                 src={previewUrl}
+                unoptimized
                 width={100}
                 height={100}
                 alt="Profile preview"
@@ -130,7 +132,8 @@ export default function ProfilePage() {
             ) : !isPending && data?.user.image ? (
               <Image
                 className="size-40 rounded-full border cursor-pointer"
-                src={data.user.image}
+                src={toProxiedImageSrc(data.user.image)}
+                unoptimized
                 width={100}
                 height={100}
                 alt="Profile preview"

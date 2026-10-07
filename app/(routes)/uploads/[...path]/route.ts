@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 
-import { UPLOAD_TYPES, readImage } from "@/utils/image-storage";
+import { requireApiAuth } from "@/utils/api";
+import { UPLOAD_TYPES } from "@/utils/image-storage";
+import { readImage } from "@/utils/image-storage-local";
 import { validateData } from "@/utils/validation";
 import { z } from "zod";
 
@@ -17,6 +19,9 @@ export const GET = async (
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
 ) => {
+  const { response } = await requireApiAuth(request);
+  if (response) return response;
+
   const { path } = await params;
   const validated = validateData(
     request,

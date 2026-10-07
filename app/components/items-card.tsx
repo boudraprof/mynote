@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
+import { toProxiedImageSrc } from "@/utils/image-url";
 
 import {
   DropdownMenu,
@@ -212,7 +213,8 @@ export function ItemsCard({
           onClick={() => {
             editButton();
           }}
-          src={note.image}
+          src={toProxiedImageSrc(note.image)}
+          unoptimized
           loading="eager"
           alt="Note Image"
           width={500}

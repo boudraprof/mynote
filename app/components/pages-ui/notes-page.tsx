@@ -78,6 +78,7 @@ import { NoteFormData, Notes, NotesInsert } from "@/types";
 import api from "@/utils/axios";
 import { toLocalInput } from "@/utils/date";
 import { saveNoteVersion } from "@/utils/note-history";
+import { toProxiedImageSrc } from "@/utils/image-url";
 import { getNoteStatusForSave } from "@/utils/note-status";
 import { labelsKeys, notesKeys } from "@/utils/query-keys";
 import { spinner } from "@/utils/atoms";
@@ -626,7 +627,8 @@ export default function NotesPage({
             {form.image && (
               <div className="relative">
                 <NextImage
-                  src={form.image}
+                  src={toProxiedImageSrc(form.image)}
+                  unoptimized
                   width={500}
                   height={500}
                   alt="Notes Image"

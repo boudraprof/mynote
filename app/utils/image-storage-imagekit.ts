@@ -49,12 +49,16 @@ export async function saveImage(
   })
 
   const filePath = result.filePath ?? `/${type}/${fileName}`
-  const url = result.url ?? buildImageKitUrl(filePath)
+  const cleanFilePath = filePath.replace(/^\/+/, '')
+
+  // Serve images through the authenticated proxy so the ImageKit endpoint
+  // and file path are never exposed to the client.
+  const url = `/api/v1/images/${cleanFilePath}`
 
   let thumbnailUrl: string | null = null
   const thumbSize = THUMBNAIL_SIZES[type]
   if (thumbSize) {
-    thumbnailUrl = buildImageKitUrl(filePath, [
+    const trParams = buildImageKitUrl(`/${cleanFilePath}`, [
       {
         width: thumbSize.width,
         height: thumbSize.height,
@@ -63,6 +67,8 @@ export async function saveImage(
         format: 'auto',
       },
     ])
+    const tr = trParams.split('?tr=')[1] ?? null
+    thumbnailUrl = `/api/v1/images/${cleanFilePath}${tr ? `?tr=${encodeURIComponent(tr)}` : ''}`
   }
 
   return {
@@ -88,14 +94,17 @@ export async function deleteImage(
   const client = getImageKitClient()
   if (!client) return
 
-  const fileId = publicIdFromUrl(imageUrl)
+  // Support both proxy paths (/api/v1/images/...) stored by new uploads
+  // and legacy absolute endpoint URLs.
+  const proxyPath = imageUrl.match(/^\/api\/v1\/images\/(.+)$/)?.[1]
+  const fileId = (proxyPath || publicIdFromUrl(imageUrl))?.replace(/^\/+/, '')
   if (!fileId) {
     logger.warn(`Could not extract ImageKit file path from URL: ${imageUrl}`)
     return
   }
 
   try {
-    await client.files.delete(fileId.replace(/^\/+/, ''))
+    await client.files.delete(fileId)
     logger.info(`Deleted image: ${fileId}`, 'ImageStorage')
   } catch (error) {
     logger.error(`Failed to delete ImageKit file: ${imageUrl}`, error, 'ImageStorage')

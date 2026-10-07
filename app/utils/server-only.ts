@@ -18,8 +18,9 @@ export const apiNoteSchema = z.object({
         /^https?:\/\//.test(v) ||
         v.startsWith("data:") ||
         v.startsWith("blob:") ||
-        v.startsWith("/uploads/"),
-      { message: "image must be an http(s), data:, blob:, or /uploads/ URL" },
+        v.startsWith("/uploads/") ||
+        v.startsWith("/api/v1/images/"),
+      { message: "image must be an http(s), data:, blob:, /uploads/, or /api/v1/images/ URL" },
     )
     .optional()
     .nullable(),

@@ -133,6 +133,7 @@ export default function UserForm({
             onImageUploadProgress?.(0)
             const formData = new FormData()
             formData.append('image', val.image)
+            formData.append('type', 'avatars')
             const {
               data: { url },
         } = await api.post('/upload-image', formData, {
