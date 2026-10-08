@@ -156,9 +156,11 @@ export default function SignupScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={theme.onAccent} />
             ) : (
-              <Text style={styles.primaryBtnText}>Create Account</Text>
+              <Text style={[styles.primaryBtnText, { color: theme.onAccent }]}>
+                Create Account
+              </Text>
             )}
           </Pressable>
         </View>
@@ -201,7 +203,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   primaryBtn: { borderRadius: Radius.md, paddingVertical: 15, alignItems: 'center', marginTop: Spacing.one },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  primaryBtnText: { fontSize: 16, fontWeight: '600' },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   footerText: { fontSize: 14 },
   footerLink: { fontSize: 14, fontWeight: '600' },

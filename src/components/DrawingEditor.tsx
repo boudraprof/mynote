@@ -1,3 +1,6 @@
+import { Radius, Spacing } from '@/constants/theme'
+import { useTheme } from '@/hooks/use-theme'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useCallback, useRef, useState } from 'react'
 import {
   Alert,
@@ -8,12 +11,9 @@ import {
   Text,
   View,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path, Rect } from 'react-native-svg'
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
-import { useTheme } from '@/hooks/use-theme'
-import { Radius, Spacing } from '@/constants/theme'
 
 interface Point {
   x: number
@@ -125,7 +125,7 @@ export function DrawingEditor({ visible, onClose, onSave }: DrawingEditorProps) 
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={handleClose} style={styles.headerBtn}>
-            <Ionicons name="close-outline" size={24} color={theme.text} />
+            <MaterialCommunityIcons name="close-outline" size={24} color={theme.text} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: theme.text }]}>Drawing</Text>
           <Pressable
@@ -136,7 +136,7 @@ export function DrawingEditor({ visible, onClose, onSave }: DrawingEditorProps) 
               { opacity: saving ? 0.5 : pressed ? 0.6 : 1 },
             ]}
           >
-            <Ionicons name="checkmark-outline" size={24} color={theme.accent} />
+            <MaterialCommunityIcons name="check-outline" size={24} color={theme.accent} />
           </Pressable>
         </View>
 
@@ -251,7 +251,7 @@ export function DrawingEditor({ visible, onClose, onSave }: DrawingEditorProps) 
                 { opacity: strokes.length === 0 ? 0.4 : pressed ? 0.6 : 1 },
               ]}
             >
-              <Ionicons name="arrow-undo-outline" size={20} color={theme.text} />
+              <MaterialCommunityIcons name="undo" size={20} color={theme.text} />
             </Pressable>
 
             <Pressable
@@ -262,7 +262,7 @@ export function DrawingEditor({ visible, onClose, onSave }: DrawingEditorProps) 
                 { opacity: strokes.length === 0 ? 0.4 : pressed ? 0.6 : 1 },
               ]}
             >
-              <Ionicons name="trash-outline" size={20} color={theme.danger} />
+              <MaterialCommunityIcons name="trash-can-outline" size={20} color={theme.danger} />
             </Pressable>
           </View>
         </View>

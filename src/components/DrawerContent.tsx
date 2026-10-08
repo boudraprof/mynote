@@ -1,4 +1,9 @@
-import { Ionicons } from '@expo/vector-icons'
+import { Radius, Spacing } from '@/constants/theme'
+import { useCreateLabel, useDeleteLabel, useLabels } from '@/hooks/use-labels'
+import { useTheme } from '@/hooks/use-theme'
+import { useAuth } from '@/providers/auth-provider'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { router } from 'expo-router'
 import { useState } from 'react'
 import {
   Image,
@@ -10,17 +15,12 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
-import { useTheme } from '@/hooks/use-theme'
-import { useLabels, useCreateLabel, useDeleteLabel } from '@/hooks/use-labels'
-import { useAuth } from '@/providers/auth-provider'
-import { Radius, Spacing } from '@/constants/theme'
 
 const NAV_ITEMS = [
-  { name: 'notes', label: 'Notes', icon: 'document-text-outline', path: '/', tab: undefined },
-  { name: 'reminders', label: 'Reminders', icon: 'notifications-outline', path: '/', tab: 'reminder' },
+  { name: 'notes', label: 'Notes', icon: 'file-document-outline', path: '/', tab: undefined },
+  { name: 'reminders', label: 'Reminders', icon: 'bell-ring-outline', path: '/', tab: 'reminder' },
   { name: 'archive', label: 'Archive', icon: 'archive-outline', path: '/', tab: 'archived' },
-  { name: 'trash', label: 'Trash', icon: 'trash-outline', path: '/', tab: 'trash' },
+  { name: 'trash', label: 'Trash', icon: 'trash-can-outline', path: '/', tab: 'trash' },
 ] as const
 
 interface DrawerContentProps {
@@ -83,7 +83,7 @@ export function DrawerContent(_props: DrawerContentProps) {
             ]}
             onPress={() => handleNav(item.path, item.tab)}
           >
-            <Ionicons name={item.icon as any} size={22} color={theme.text} style={styles.navIcon} />
+            <MaterialCommunityIcons name={item.icon as any} size={22} color={theme.text} style={styles.navIcon} />
             <Text style={[styles.navLabel, { color: theme.text }]}>
               {item.label}
             </Text>
@@ -99,7 +99,7 @@ export function DrawerContent(_props: DrawerContentProps) {
           ]}
           onPress={() => setIsEditingLabels((v) => !v)}
         >
-          <Ionicons name="pencil-outline" size={22} color={theme.text} style={styles.navIcon} />
+          <MaterialCommunityIcons name="pencil-outline" size={22} color={theme.text} style={styles.navIcon} />
           <Text style={[styles.navLabel, { color: theme.text }]}>
             Edit labels
           </Text>
@@ -108,7 +108,7 @@ export function DrawerContent(_props: DrawerContentProps) {
               onPress={() => setIsEditingLabels(false)}
               style={styles.closeBtn}
             >
-              <Ionicons name="close-outline" size={20} color={theme.textSecondary} />
+              <MaterialCommunityIcons name="close-outline" size={20} color={theme.textSecondary} />
             </Pressable>
           )}
         </Pressable>
@@ -135,7 +135,7 @@ export function DrawerContent(_props: DrawerContentProps) {
               style={[styles.addBtn, { backgroundColor: theme.accent }]}
               onPress={handleAddLabel}
             >
-              <Ionicons name="add-outline" size={20} color="#fff" />
+              <MaterialCommunityIcons name="plus" size={20} color={theme.onAccent} />
             </Pressable>
           </View>
         )}
@@ -149,7 +149,7 @@ export function DrawerContent(_props: DrawerContentProps) {
             ]}
             onPress={() => handleLabelClick(label.name)}
           >
-            <Ionicons name="pricetag-outline" size={22} color={theme.text} style={styles.navIcon} />
+            <MaterialCommunityIcons name="tag" size={22} color={theme.text} style={styles.navIcon} />
             <Text
               style={[styles.navLabel, { color: theme.text }]}
               numberOfLines={1}
@@ -161,7 +161,7 @@ export function DrawerContent(_props: DrawerContentProps) {
                 onPress={() => handleDeleteLabel(label.id)}
                 style={styles.deleteBtn}
               >
-                <Ionicons name="trash-outline" size={18} color={theme.danger} />
+                <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.danger} />
               </Pressable>
             )}
           </Pressable>
@@ -171,7 +171,7 @@ export function DrawerContent(_props: DrawerContentProps) {
       {/* Footer: user info + sign out */}
       <View style={[styles.footer, { borderTopColor: theme.border }]}>
         <View style={[styles.avatar, { backgroundColor: theme.accent }]}>
-          <Text style={styles.avatarText}>
+          <Text style={[styles.avatarText, { color: theme.onAccent }]}>
             {(user?.name || user?.email || 'U')[0].toUpperCase()}
           </Text>
         </View>
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  addBtnText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  addBtnText: { fontSize: 18, fontWeight: '600' },
   deleteBtn: { padding: 4 },
   footer: {
     flexDirection: 'row',
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  avatarText: { fontSize: 15, fontWeight: '600' },
   footerInfo: { flex: 1 },
   footerName: { fontSize: 14, fontWeight: '600' },
   footerEmail: { fontSize: 12 },

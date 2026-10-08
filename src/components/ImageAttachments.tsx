@@ -1,17 +1,17 @@
-import { Ionicons } from '@expo/vector-icons'
+import { uploadImage } from '@/api/upload'
+import { Spacing } from '@/constants/theme'
+import { useImageSource } from '@/hooks/use-image-source'
+import { useTheme } from '@/hooks/use-theme'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { Image } from 'expo-image'
+import * as ImagePicker from 'expo-image-picker'
 import {
   Alert,
-  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native'
-import * as ImagePicker from 'expo-image-picker'
-import { useTheme } from '@/hooks/use-theme'
-import { Spacing } from '@/constants/theme'
-import { config } from '@/lib/env'
-import { uploadImage } from '@/api/upload'
 
 interface ImageAttachmentsProps {
   image: string | null
@@ -20,6 +20,7 @@ interface ImageAttachmentsProps {
 
 export function ImageAttachments({ image, onChange }: ImageAttachmentsProps) {
   const theme = useTheme()
+  const imageSource = useImageSource(image)
 
   const handlePick = async () => {
     try {
@@ -63,22 +64,14 @@ export function ImageAttachments({ image, onChange }: ImageAttachmentsProps) {
   
   return (
     <View style={styles.container}>
-      {image  ? (
+      {imageSource ? (
         <View style={styles.imageContainer}>
-          <Image
-            source={{
-              uri:image?.startsWith('http')
-                ? image 
-                : `${config.apiUrl}${image}`,
-            }}
-            style={styles.image}
-            resizeMode="cover"
-          />
+          <Image source={imageSource} style={styles.image} contentFit="cover" />
           <Pressable
             style={[styles.removeBtn, { backgroundColor: theme.background }]}
             onPress={handleRemove}
           >
-            <Ionicons name="close-outline" size={18} color={theme.text} />
+            <MaterialCommunityIcons name="close-outline" size={18} color={theme.text} />
           </Pressable>
         </View>
       ) : (
@@ -93,7 +86,7 @@ export function ImageAttachments({ image, onChange }: ImageAttachmentsProps) {
           onPress={handlePick}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="add-outline" size={20} color={theme.textSecondary} />
+            <MaterialCommunityIcons name="plus-outline" size={20} color={theme.textSecondary} />
             <Text style={[styles.addText, { color: theme.textSecondary }]}>
               Add image
             </Text>

@@ -90,7 +90,10 @@ export async function updateLocalNote(input: NoteUpdate) {
       ...(input.labels !== undefined && {
         labels: JSON.stringify(input.labels),
       }),
-      ...(input.pinned !== undefined && { pinned: input.pinned }),
+      // Mirror the server: a trashed note can never stay pinned.
+      ...(input.statusName === 'trash'
+        ? { pinned: false }
+        : input.pinned !== undefined && { pinned: input.pinned }),
       ...(input.position !== undefined && { position: input.position }),
       ...(input.checklist !== undefined && { checklist: input.checklist }),
       ...(input.checklistItems !== undefined && {
@@ -103,8 +106,11 @@ export async function updateLocalNote(input: NoteUpdate) {
       ...(input.reminderAt !== undefined && {
         reminderAt: input.reminderAt,
         // Mirror the server: setting a reminder moves the note to the
-        // reminder status, clearing it moves it back to active.
-        statusName: input.reminderAt ? 'reminder' : 'active',
+        // reminder status, clearing it moves it back to active — unless the
+        // caller already chose a status (e.g. an explicit archive).
+        ...(input.statusName === undefined && {
+          statusName: input.reminderAt ? 'reminder' : 'active',
+        }),
       }),
       updatedAt: timestamp,
       synced: false,
@@ -140,7 +146,12 @@ export async function deleteLocalNote(id: string) {
 
   await db
     .update(localNotes)
-    .set({ statusName: 'trash', synced: false, updatedAt: now() })
+    .set({
+      statusName: 'trash',
+      pinned: false,
+      synced: false,
+      updatedAt: now(),
+    })
     .where(eq(localNotes.id, id))
 
   const existingQueue = await db

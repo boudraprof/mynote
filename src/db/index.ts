@@ -57,6 +57,27 @@ export async function getDb() {
         )`,
       )
 
+      // Created here rather than by drizzle-kit: the app applies its schema
+      // with hand-written DDL on startup (the bundled migration predates this
+      // table), so history saves/reads failed with "no such table".
+      sqlite.execSync(
+        `CREATE TABLE IF NOT EXISTS note_history (
+          id TEXT PRIMARY KEY,
+          note_id TEXT NOT NULL,
+          title TEXT,
+          content TEXT,
+          checklist_items TEXT,
+          labels TEXT,
+          snapshot TEXT NOT NULL,
+          timestamp TEXT NOT NULL,
+          change_type TEXT NOT NULL
+        )`,
+      )
+      sqlite.execSync(
+        `CREATE INDEX IF NOT EXISTS note_history_note_id_idx
+         ON note_history (note_id)`,
+      )
+
       db = drizzle(sqlite, { schema })
     })()
   }

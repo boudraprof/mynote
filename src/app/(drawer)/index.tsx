@@ -1,3 +1,4 @@
+import { router, useLocalSearchParams, useNavigation } from 'expo-router'
 import {
   useCallback,
   useEffect,
@@ -19,11 +20,14 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { router, useNavigation, useLocalSearchParams } from 'expo-router'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Menu } from 'react-native-paper'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import type { ApiNote } from '@/api/types'
+import { EmptyState } from '@/components/EmptyState'
+import { LoadingView } from '@/components/LoadingView'
+import { NoteCard } from '@/components/NoteCard'
+import { Radius, Shadow, Spacing } from '@/constants/theme'
 import {
   useCopyNote,
   useDeleteNote,
@@ -31,14 +35,10 @@ import {
   useUpdateNote,
 } from '@/hooks/use-notes'
 import { pullServerNotes, syncPendingNotes, useSyncStatus } from '@/hooks/use-sync'
-import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/hooks/use-theme'
-import { NoteCard } from '@/components/NoteCard'
-import { LoadingView } from '@/components/LoadingView'
-import { EmptyState } from '@/components/EmptyState'
-import { Radius, Shadow, Spacing } from '@/constants/theme'
 import api from '@/lib/api'
 import { useSession } from '@/lib/auth'
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
 
 
 
@@ -89,10 +89,10 @@ export default function HomeScreen() {
   const rawNotes = data?.data ?? []
   const notesList = searchQuery
     ? rawNotes.filter(
-        (n) =>
-          (n.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (n.content || '').toLowerCase().includes(searchQuery.toLowerCase()),
-      )
+      (n) =>
+        (n.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (n.content || '').toLowerCase().includes(searchQuery.toLowerCase()),
+    )
     : rawNotes
 
   const sortedNotes = useMemo(() => {
@@ -238,7 +238,7 @@ export default function HomeScreen() {
   }, [selectedNotes, clearSelection])
 
   type ToolbarAction = {
-    icon: ComponentProps<typeof Ionicons>['name']
+    icon: ComponentProps<typeof MaterialCommunityIcons>['name']
     label: string
     color?: string
     onPress: () => void
@@ -251,49 +251,49 @@ export default function HomeScreen() {
 
   const toolbarButtons: ToolbarAction[] = isTrashView
     ? [
+      {
+        icon: 'restore',
+        label: 'Restore',
+        onPress: restoreSelected,
+      },
+      { icon: 'content-copy', label: 'Copy', onPress: copySelected },
+      {
+        icon: 'trash-can-outline',
+        label: 'Delete forever',
+        color: theme.danger,
+        onPress: deleteForeverSelected,
+      },
+    ]
+    : isArchiveView
+      ? [
         {
-          icon: 'arrow-undo-outline',
+          icon: 'restore',
           label: 'Restore',
           onPress: restoreSelected,
         },
-        { icon: 'copy-outline', label: 'Copy', onPress: copySelected },
+        { icon: 'content-copy', label: 'Copy', onPress: copySelected },
         {
-          icon: 'trash-outline',
-          label: 'Delete forever',
+          icon: 'trash-can-outline',
+          label: 'Move to trash',
           color: theme.danger,
-          onPress: deleteForeverSelected,
+          onPress: trashSelected,
         },
       ]
-    : isArchiveView
-      ? [
-          {
-            icon: 'arrow-undo-outline',
-            label: 'Restore',
-            onPress: restoreSelected,
-          },
-          { icon: 'copy-outline', label: 'Copy', onPress: copySelected },
-          {
-            icon: 'trash-outline',
-            label: 'Move to trash',
-            color: theme.danger,
-            onPress: trashSelected,
-          },
-        ]
       : [
-          {
-            icon: allPinned ? 'pin' : 'pin-outline',
-            label: allPinned ? 'Unpin' : 'Pin',
-            onPress: pinSelected,
-          },
-          { icon: 'copy-outline', label: 'Copy', onPress: copySelected },
-          { icon: 'archive-outline', label: 'Archive', onPress: archiveSelected },
-          {
-            icon: 'trash-outline',
-            label: 'Move to trash',
-            color: theme.danger,
-            onPress: trashSelected,
-          },
-        ]
+        {
+          icon: allPinned ? 'pin-off' : 'pin',
+          label: allPinned ? 'Unpin' : 'Pin',
+          onPress: pinSelected,
+        },
+        { icon: 'content-copy', label: 'Copy', onPress: copySelected },
+        { icon: 'archive-outline', label: 'Archive', onPress: archiveSelected },
+        {
+          icon: 'trash-can-outline',
+          label: 'Move to trash',
+          color: theme.danger,
+          onPress: trashSelected,
+        },
+      ]
 
   const menuItems = useMemo(() => {
     if (selectedNotes.length !== 1) return []
@@ -331,7 +331,7 @@ export default function HomeScreen() {
           ]}
           onPress={() => router.push('/auth/login')}
         >
-          <Text style={[styles.authButtonText, { color: '#fff' }]}>
+          <Text style={[styles.authButtonText, { color: theme.onAccent }]}>
             Sign In
           </Text>
         </Pressable>
@@ -387,7 +387,7 @@ export default function HomeScreen() {
                 { opacity: pressed ? 0.6 : 1 },
               ]}
             >
-              <Ionicons name="close-outline" size={24} color={theme.text} />
+              <MaterialCommunityIcons name="close-outline" size={24} color={theme.text} />
             </Pressable>
             <Text
               style={[styles.selectionCount, { color: theme.text }]}
@@ -406,11 +406,7 @@ export default function HomeScreen() {
                     { opacity: pressed ? 0.6 : 1 },
                   ]}
                 >
-                  <Ionicons
-                    name={btn.icon}
-                    size={20}
-                    color={btn.color ?? theme.text}
-                  />
+                  <MaterialCommunityIcons name={btn.icon} size={20} color={theme.text} />
                 </Pressable>
               ))}
               {menuItems.length > 0 && (
@@ -426,8 +422,8 @@ export default function HomeScreen() {
                         { opacity: pressed ? 0.6 : 1 },
                       ]}
                     >
-                      <Ionicons
-                        name="ellipsis-vertical"
+                      <MaterialCommunityIcons
+                        name="dots-vertical"
                         size={20}
                         color={theme.text}
                       />
@@ -438,7 +434,7 @@ export default function HomeScreen() {
                     <Menu.Item
                       key={item.label}
                       leadingIcon={({ size, color }) => (
-                        <Ionicons name={item.icon} size={size} color={color} />
+                        <MaterialCommunityIcons name={item.icon} size={size} color={color} />
                       )}
                       title={item.label}
                       onPress={() => {
@@ -453,154 +449,154 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-        <View style={styles.headerRow}>
-          <Pressable onPress={() => (navigation as any).toggleDrawer()}>
-            <Ionicons name="menu-outline" size={24} color={theme.text} />
-          </Pressable>
-          <View style={styles.headerActions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.headerActionBtn,
-                { opacity: pressed ? 0.6 : 1 },
-              ]}
-              onPress={() =>
-                setViewMode((prev) => (prev === 'list' ? 'grid' : 'list'))
-              }
-            >
-              <Ionicons name={viewMode === 'list' ? 'grid-outline' : 'list-outline'} size={20} color={theme.text} />
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.headerActionBtn,
-                { opacity: pressed ? 0.6 : 1 },
-              ]}
-              onPress={() =>
-                setSortBy((prev) =>
-                  prev === 'newest'
-                    ? 'oldest'
-                    : prev === 'oldest'
-                      ? 'title'
-                      : 'newest',
-                )
-              }
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                {sortBy === 'newest' ? (
-                  <Ionicons name="arrow-down-outline" size={14} color={theme.textSecondary} />
-                ) : sortBy === 'oldest' ? (
-                  <Ionicons name="arrow-up-outline" size={14} color={theme.textSecondary} />
-                ) : (
-                  <Ionicons name="text-outline" size={14} color={theme.textSecondary} />
-                )}
-                <Text style={{ fontSize: 14, color: theme.textSecondary }}>
-                  {sortBy === 'newest' ? 'Newest' : sortBy === 'oldest' ? 'Oldest' : 'Title'}
-                </Text>
-              </View>
-            </Pressable>
-          </View>
-          <Pressable onPress={() => {
-            router.navigate({pathname: "/profile"})
-          }}>
-            <View style={[styles.avatar, { backgroundColor: theme.accent }]}>
-              <Text style={styles.avatarText}>
-                {(user.name || user.email || 'U')[0].toUpperCase()}
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-
-        {/* Search Input */}
-        <View
-          style={[
-            styles.searchContainer,
-            { backgroundColor: theme.surface },
-            Shadow.sm,
-          ]}
-        >
-          <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
-          <TextInput
-            ref={searchRef}
-            style={[styles.searchInput, { color: theme.text }]}
-            placeholder="Search notes..."
-            placeholderTextColor={theme.textSecondary}
-            value={searchQuery}
-            onChangeText={(v) => {
-              setSearchQuery(v)
-              if (v.length > 0 && (activeTab || selectedLabel)) {
-                setActiveTab(undefined)
-                setSelectedLabel(undefined)
-              }
-            }}
-            onSubmitEditing={() => router.push('/search')}
-            returnKeyType="search"
-          />
-          {searchQuery !== '' && (
-            <Pressable onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-outline" size={20} color={theme.textSecondary} />
-            </Pressable>
-          )}
-        </View>
-
-        {/* Pending sync banner */}
-        {(sync.pending > 0 || sync.syncing) && (
-          <View
-            style={[
-              styles.syncBanner,
-              {
-                backgroundColor: sync.syncing
-                  ? theme.accentLight
-                  : theme.backgroundSelected,
-              },
-            ]}
-          >
-            {sync.syncing ? (
-              <ActivityIndicator size="small" color={theme.accent} />
-            ) : (
-              <Ionicons
-                name="cloud-upload-outline"
-                size={14}
-                color={theme.textSecondary}
-              />
-            )}
-            <Text
-              style={[styles.syncBannerText, { color: theme.textSecondary }]}
-              numberOfLines={1}
-            >
-              {sync.syncing
-                ? `Syncing ${sync.pending} change${sync.pending === 1 ? '' : 's'}…`
-                : sync.retryInMs > 0
-                  ? `${sync.pending} change${sync.pending === 1 ? '' : 's'} waiting — retrying in ${Math.ceil(sync.retryInMs / 1000)}s`
-                  : `${sync.pending} change${sync.pending === 1 ? '' : 's'} waiting to sync`}
-            </Text>
-            {!sync.syncing && (
-              <Pressable onPress={() => void syncPendingNotes()} hitSlop={8}>
-                <Text style={[styles.syncBannerAction, { color: theme.accent }]}>
-                  Sync now
-                </Text>
+            <View style={styles.headerRow}>
+              <Pressable onPress={() => (navigation as any).toggleDrawer()}>
+                <MaterialCommunityIcons name="menu" size={24} color={theme.text} />
               </Pressable>
-            )}
-          </View>
-        )}
+              <View style={styles.headerActions}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.headerActionBtn,
+                    { opacity: pressed ? 0.6 : 1 },
+                  ]}
+                  onPress={() =>
+                    setViewMode((prev) => (prev === 'list' ? 'grid' : 'list'))
+                  }
+                >
+                  <MaterialCommunityIcons name={viewMode === 'list' ? 'view-grid-outline' : 'view-list-outline'} size={20} color={theme.text} />
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.headerActionBtn,
+                    { opacity: pressed ? 0.6 : 1 },
+                  ]}
+                  onPress={() =>
+                    setSortBy((prev) =>
+                      prev === 'newest'
+                        ? 'oldest'
+                        : prev === 'oldest'
+                          ? 'title'
+                          : 'newest',
+                    )
+                  }
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    {sortBy === 'newest' ? (
+                      <MaterialCommunityIcons name="arrow-down-thin" size={14} color={theme.textSecondary} />
+                    ) : sortBy === 'oldest' ? (
+                      <MaterialCommunityIcons name="arrow-up-thin" size={14} color={theme.textSecondary} />
+                    ) : (
+                      <MaterialCommunityIcons name="text" size={14} color={theme.textSecondary} />
+                    )}
+                    <Text style={{ fontSize: 14, color: theme.textSecondary }}>
+                      {sortBy === 'newest' ? 'Newest' : sortBy === 'oldest' ? 'Oldest' : 'Title'}
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+              <Pressable onPress={() => {
+                router.navigate({ pathname: "/profile" })
+              }}>
+                <View style={[styles.avatar, { backgroundColor: theme.accent }]}>
+                  {user.image ? <Image src={user.image} width={36} height={26} /> : <Text style={[styles.avatarText, { color: theme.onAccent }]}>
+                    (user.name || user.email || 'U')[0].toUpperCase()</Text>}
 
-        {/* Empty Trash Button Row */}
-        {activeTab === 'trash' && notesList.length > 0 && (
-          <View style={styles.trashHeaderRow}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.emptyTrashBtn,
-                {
-                  backgroundColor: theme.accentLight,
-                  opacity: pressed ? 0.8 : 1,
-                },
+                </View>
+              </Pressable>
+            </View>
+
+            {/* Search Input */}
+            <View
+              style={[
+                styles.searchContainer,
+                { backgroundColor: theme.surface },
+                Shadow.sm,
               ]}
-              onPress={handleEmptyTrash}
             >
-              <Text style={[styles.emptyTrashText, { color: theme.accent }]}>
-                Empty Trash Now
-              </Text>
-            </Pressable>
-          </View>
-        )}
+              <MaterialCommunityIcons name="magnify" size={20} color={theme.textSecondary} />
+              <TextInput
+                ref={searchRef}
+                style={[styles.searchInput, { color: theme.text }]}
+                placeholder="Search  notes..."
+                placeholderTextColor={theme.textSecondary}
+                value={searchQuery}
+                onChangeText={(v) => {
+                  setSearchQuery(v)
+                  if (v.length > 0 && (activeTab || selectedLabel)) {
+                    setActiveTab(undefined)
+                    setSelectedLabel(undefined)
+                  }
+                }}
+                onSubmitEditing={() => router.push('/search')}
+                returnKeyType="search"
+              />
+              {searchQuery !== '' && (
+                <Pressable onPress={() => setSearchQuery('')}>
+                  <MaterialCommunityIcons name="close-outline" size={20} color={theme.textSecondary} />
+                </Pressable>
+              )}
+            </View>
+
+            {/* Pending sync banner */}
+            {(sync.pending > 0 || sync.syncing) && (
+              <View
+                style={[
+                  styles.syncBanner,
+                  {
+                    backgroundColor: sync.syncing
+                      ? theme.accentLight
+                      : theme.backgroundSelected,
+                  },
+                ]}
+              >
+                {sync.syncing ? (
+                  <ActivityIndicator size="small" color={theme.accent} />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="cloud-upload-outline"
+                    size={14}
+                    color={theme.textSecondary}
+                  />
+                )}
+                <Text
+                  style={[styles.syncBannerText, { color: theme.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {sync.syncing
+                    ? `Syncing ${sync.pending} change${sync.pending === 1 ? '' : 's'}…`
+                    : sync.retryInMs > 0
+                      ? `${sync.pending} change${sync.pending === 1 ? '' : 's'} waiting — retrying in ${Math.ceil(sync.retryInMs / 1000)}s`
+                      : `${sync.pending} change${sync.pending === 1 ? '' : 's'} waiting to sync`}
+                </Text>
+                {!sync.syncing && (
+                  <Pressable onPress={() => void syncPendingNotes()} hitSlop={8}>
+                    <Text style={[styles.syncBannerAction, { color: theme.accent }]}>
+                      Sync now
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+
+            {/* Empty Trash Button Row */}
+            {activeTab === 'trash' && notesList.length > 0 && (
+              <View style={styles.trashHeaderRow}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.emptyTrashBtn,
+                    {
+                      backgroundColor: theme.accentLight,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}
+                  onPress={handleEmptyTrash}
+                >
+                  <Text style={[styles.emptyTrashText, { color: theme.accent }]}>
+                    Empty Trash Now
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </>
         )}
       </View>
@@ -614,10 +610,10 @@ export default function HomeScreen() {
             activeTab === 'archived'
               ? 'archive-outline'
               : activeTab === 'trash'
-                ? 'trash-outline'
+                ? 'trash-can-outline'
                 : activeTab === 'reminder'
-                  ? 'notifications-outline'
-                  : 'document-text-outline'
+                  ? 'bell-ring-outline'
+                  : 'file-document-outline'
           }
           title={
             searchQuery
@@ -713,7 +709,8 @@ export default function HomeScreen() {
           ]}
           onPress={() => router.push('/note/create')}
         >
-          <Ionicons name="add-outline" size={28} color="#fff" />
+          <MaterialCommunityIcons name="plus" size={28} color={theme.onAccent} />
+
         </Pressable>
       )}
     </View>
@@ -721,7 +718,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1},
+  container: { flex: 1 },
   authContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -790,7 +787,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   avatarText: {
-    color: '#fff',
     fontSize: 15,
     fontWeight: '600',
   },

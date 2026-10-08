@@ -1,4 +1,10 @@
-import { Ionicons } from '@expo/vector-icons'
+import type { ApiNote } from '@/api/types'
+import { Radius, Shadow, Spacing } from '@/constants/theme'
+import { useImageSource } from '@/hooks/use-image-source'
+import { useTheme } from '@/hooks/use-theme'
+import { htmlToPlainText } from '@/lib/html'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { Image as ExpoImage } from 'expo-image'
 import {
   Image,
   ImageSourcePropType,
@@ -7,11 +13,6 @@ import {
   Text,
   View,
 } from 'react-native'
-import type { ApiNote } from '@/api/types'
-import { Radius, Shadow, Spacing } from '@/constants/theme'
-import { useTheme } from '@/hooks/use-theme'
-import { config } from '@/lib/env'
-import { htmlToPlainText } from '@/lib/html'
 
 const paletteColorValues: Record<string, string> = {
   coral: '#f4a460',
@@ -97,11 +98,7 @@ export function NoteCard({
     : []
   const checkedCount = checklistItems.filter((i) => i.checked).length
 
-  const imageUri = note.image
-    ? note.image.startsWith('http')
-      ? note.image
-      : `${config.apiUrl}${note.image}`
-    : null
+  const imageSource = useImageSource(note.image)
 
   const bgSource = isImageBg && bgName ? backgroundImages[bgName] : null
 
@@ -126,15 +123,15 @@ export function NoteCard({
 
       {selected && (
         <View style={[styles.selectedBadge, { backgroundColor: theme.accent }]}> 
-          <Ionicons name="checkmark" size={12} color="#fff" />
+          <MaterialCommunityIcons name="check" size={12} color={theme.onAccent} />
         </View>
       )}
 
-      {imageUri && (
-        <Image
-          source={{ uri: imageUri }}
+      {imageSource && (
+        <ExpoImage
+          source={imageSource}
           style={styles.cardImage}
-          resizeMode="cover"
+          contentFit="cover"
         />
       )}
 
@@ -146,7 +143,7 @@ export function NoteCard({
           <View
             style={[styles.pinBadge, { backgroundColor: 'rgba(0,0,0,0.07)' }]}
           >
-            <Ionicons name="pin-outline" size={10} color="#1A1A1A" />
+            <MaterialCommunityIcons name="pin-outline" size={10} color="#1A1A1A" />
           </View>
         )}
       </View>
@@ -162,7 +159,7 @@ export function NoteCard({
                   item.checked && { backgroundColor: secondaryColor },
                 ]}
               >
-                {item.checked && <Ionicons name="checkmark-outline" size={8} color="#fff" />}
+                {item.checked && <MaterialCommunityIcons name="check-outline" size={8} color="#fff" />}
               </View>
               <Text
                 style={[

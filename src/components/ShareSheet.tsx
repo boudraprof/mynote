@@ -1,3 +1,8 @@
+import { getShares, removeShare, shareNote, type NoteShare } from '@/api/share'
+import { Radius, Spacing } from '@/constants/theme'
+import { useTheme } from '@/hooks/use-theme'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { isAxiosError } from 'axios'
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
@@ -10,10 +15,25 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import { useTheme } from '@/hooks/use-theme'
-import { Radius, Spacing } from '@/constants/theme'
-import { getShares, removeShare, shareNote, type NoteShare } from '@/api/share'
+
+/**
+ * The server returns its own reason for API failures (e.g. 404
+ * "This Note already sent to this email", 400 "You cannot share a note with
+ * yourself"); surface it instead of a generic message.
+ */
+function errorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError(error)) {
+    const data = error.response?.data
+    const message =
+      typeof data?.message === 'string'
+        ? data.message
+        : typeof data?.errors === 'string'
+          ? data.errors
+          : undefined
+    if (message) return message
+  }
+  return fallback
+}
 
 interface ShareSheetProps {
   visible: boolean
@@ -23,12 +43,11 @@ interface ShareSheetProps {
 
 /**
  * Share a note with other users by email (owner only). Mirrors the web
- * ShareDialog: invite by email, pick read/edit permission, list + revoke.
+ * ShareDialog: invite by email, list + revoke.
  */
 export function ShareSheet({ visible, onClose, noteId }: ShareSheetProps) {
   const theme = useTheme()
   const [email, setEmail] = useState('')
-  const [permission, setPermission] = useState<'read' | 'edit'>('read')
   const [shares, setShares] = useState<NoteShare[]>([])
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -42,8 +61,8 @@ export function ShareSheet({ visible, onClose, noteId }: ShareSheetProps) {
       } else {
         setShares(result.data ?? [])
       }
-    } catch {
-      Alert.alert('Error', 'Failed to load shares')
+    } catch (error) {
+      Alert.alert('Error', errorMessage(error, 'Failed to load shares'))
     } finally {
       setLoading(false)
     }
@@ -54,7 +73,6 @@ export function ShareSheet({ visible, onClose, noteId }: ShareSheetProps) {
       // Reset the invite form each time the sheet opens.
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form on open
       setEmail('')
-      setPermission('read')
       void refresh()
     }
   }, [visible, refresh])
@@ -67,31 +85,31 @@ export function ShareSheet({ visible, onClose, noteId }: ShareSheetProps) {
     }
     setBusy(true)
     try {
-      const result = await shareNote(noteId, target, permission)
+      const result = await shareNote(noteId, target)
       if (result.error) {
         Alert.alert('Error', result.message || 'Failed to share note')
       } else {
         setEmail('')
         await refresh()
       }
-    } catch {
-      Alert.alert('Error', 'Failed to share note')
+    } catch (error) {
+      Alert.alert('Error', errorMessage(error, 'Failed to share note'))
     } finally {
       setBusy(false)
     }
   }
 
-  const handleRemove = async (sharedWithId: string) => {
+  const handleRemove = async (email: string) => {
     setBusy(true)
     try {
-      const result = await removeShare(noteId, sharedWithId)
+      const result = await removeShare(noteId, email)
       if (result.error) {
         Alert.alert('Error', result.message || 'Failed to remove share')
       } else {
         await refresh()
       }
-    } catch {
-      Alert.alert('Error', 'Failed to remove share')
+    } catch (error) {
+      Alert.alert('Error', errorMessage(error, 'Failed to remove share'))
     } finally {
       setBusy(false)
     }
@@ -139,39 +157,11 @@ export function ShareSheet({ visible, onClose, noteId }: ShareSheetProps) {
               disabled={busy}
             >
               {busy ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={theme.onAccent} />
               ) : (
-                <Text style={styles.shareBtnText}>Invite</Text>
+                <Text style={[styles.shareBtnText, { color: theme.onAccent }]}>Invite</Text>
               )}
             </Pressable>
-          </View>
-
-          <View style={styles.permissionRow}>
-            {(['read', 'edit'] as const).map((p) => (
-              <Pressable
-                key={p}
-                style={({ pressed }) => [
-                  styles.permissionChip,
-                  {
-                    backgroundColor:
-                      permission === p
-                        ? theme.accent
-                        : theme.backgroundElement,
-                    opacity: pressed ? 0.7 : 1,
-                  },
-                ]}
-                onPress={() => setPermission(p)}
-              >
-                <Text
-                  style={[
-                    styles.permissionText,
-                    { color: permission === p ? '#fff' : theme.text },
-                  ]}
-                >
-                  {p === 'read' ? 'Can view' : 'Can edit'}
-                </Text>
-              </Pressable>
-            ))}
           </View>
 
           <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
@@ -198,7 +188,7 @@ export function ShareSheet({ visible, onClose, noteId }: ShareSheetProps) {
                       style={[styles.shareEmail, { color: theme.textSecondary }]}
                       numberOfLines={1}
                     >
-                      {s.email} · {s.permission === 'edit' ? 'Can edit' : 'Can view'}
+                      {s.email}
                     </Text>
                   </View>
                   <Pressable
@@ -206,10 +196,10 @@ export function ShareSheet({ visible, onClose, noteId }: ShareSheetProps) {
                       styles.removeBtn,
                       { opacity: pressed ? 0.6 : 1 },
                     ]}
-                    onPress={() => handleRemove(s.sharedWithId)}
+                    onPress={() => handleRemove(s.email)}
                     disabled={busy}
                   >
-                    <Ionicons name="close-outline" size={18} color={theme.danger} />
+                    <MaterialCommunityIcons name="close-outline" size={18} color={theme.danger} />
                   </Pressable>
                 </View>
               ))
@@ -259,14 +249,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 76,
   },
-  shareBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  permissionRow: { flexDirection: 'row', gap: Spacing.two },
-  permissionChip: {
-    borderRadius: Radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  permissionText: { fontSize: 13, fontWeight: '600' },
+  shareBtnText: { fontSize: 14, fontWeight: '600' },
   list: { marginTop: Spacing.one },
   empty: { textAlign: 'center', paddingVertical: Spacing.four, fontSize: 14 },
   shareRow: {

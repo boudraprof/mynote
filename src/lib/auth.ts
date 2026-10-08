@@ -52,7 +52,11 @@ export function useSession() {
 }
 
 
-export async function updateUser(data: { name?: string; image?: string }) {
+export async function updateUser(data: {
+  name?: string
+  /** `null` removes the current image (server deletes the stored file). */
+  image?: string | null
+}) {
   const res = await client.updateUser(data)
   if (res.error) throw new BetterAuthError(res.error.message ?? 'Update failed')
   return res.data

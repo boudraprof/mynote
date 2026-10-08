@@ -3,6 +3,7 @@
  * Handles syncing local changes to server
  */
 
+import { getAllNotes } from '@/api/notes'
 import api from './api'
 import logger from './logger'
 
@@ -72,12 +73,12 @@ export async function syncAllPending(
  */
 export async function fetchAndMergeServerNotes(): Promise<void> {
   try {
-    const { data } = await api.get('/notes', { params: { limit: 10000 } })
-    
+    const notes = await getAllNotes()
+
     // Import and merge
     const { mergeServerNotes } = await import('./offline-notes')
-    await mergeServerNotes(data.data || [])
-    
+    await mergeServerNotes(notes)
+
     logger.info('Merged server notes', 'Sync')
   } catch (error) {
     logger.error('Failed to fetch server notes', error, 'Sync')

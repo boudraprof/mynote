@@ -3,8 +3,6 @@ import type { ApiResult } from './types'
 
 export interface NoteShare {
   id: string
-  permission: 'read' | 'edit'
-  sharedWithId: string
   email: string
   name: string | null
 }
@@ -24,30 +22,28 @@ export async function getShares(noteId: string): Promise<ShareListResult> {
 }
 
 /**
- * Share a note with another user by email. Creates or updates the share.
+ * Share a note with another user by email. Creates the share and emails them.
  */
 export async function shareNote(
   noteId: string,
   email: string,
-  permission: 'read' | 'edit' = 'read',
 ): Promise<ApiResult & { data?: never }> {
   const { data } = await api.post('/notes/share', {
     noteId,
     email,
-    permission,
   })
   return data
 }
 
 /**
- * Remove a share (owner only).
+ * Remove a share (owner only). Unshares the email on this note.
  */
 export async function removeShare(
   noteId: string,
-  sharedWithId: string,
+  email: string,
 ): Promise<ApiResult> {
   const { data } = await api.delete('/notes/share', {
-    data: { noteId, sharedWithId },
+    data: { noteId, email },
   })
   return data
 }

@@ -25,6 +25,14 @@ export interface ReorderItem {
   position: number
 }
 
+/**
+ * Server-side page size cap (`notesQuerySchema.limit` max is 100), so a full
+ * export/merge has to walk `offset` instead of asking for a huge limit.
+ */
+export const NOTES_PAGE_SIZE = 100
+
+const MAX_NOTE_PAGES = 200
+
 export async function getNotes(params?: {
   field?: string
   limit?: number
@@ -33,6 +41,30 @@ export async function getNotes(params?: {
 }): Promise<ApiResponse<ApiNote[]>> {
   const { data } = await api.get('/notes', { params })
   return data
+}
+
+/**
+ * Fetch every note by paging through `/notes` with the capped limit.
+ */
+export async function getAllNotes(params?: {
+  field?: string
+  label?: string
+}): Promise<ApiNote[]> {
+  const all: ApiNote[] = []
+
+  for (let page = 0; page < MAX_NOTE_PAGES; page++) {
+    const result = await getNotes({
+      ...params,
+      limit: NOTES_PAGE_SIZE,
+      offset: all.length,
+    })
+    const batch = result.data ?? []
+    all.push(...batch)
+
+    if (batch.length < NOTES_PAGE_SIZE || all.length >= result.total) break
+  }
+
+  return all
 }
 
 export async function getNoteById(id: string): Promise<{ data: ApiNote }> {
@@ -56,11 +88,11 @@ export async function deleteNote(id?: string): Promise<ApiResult> {
 }
 
 export async function copyNote(note: NoteInput): Promise<ApiResult> {
-  const { data } = await api.post('/notes', { action: 'copy', data: note })
+  const { data } = await api.post('/notes/copy', note)
   return data
 }
 
 export async function reorderNotes(items: ReorderItem[]): Promise<ApiResult> {
-  const { data } = await api.post('/notes', { action: 'reorder', data: items })
+  const { data } = await api.post('/notes/reorder', items)
   return data
 }

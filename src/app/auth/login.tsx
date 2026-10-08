@@ -39,6 +39,7 @@ export default function LoginScreen() {
     setError('')
     try {
       const res = await signInEmail({ email, password })
+      console.log(res)
       if (res) {
         router.replace('/')
       } else {
@@ -131,9 +132,11 @@ export default function LoginScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={theme.onAccent} />
             ) : (
-              <Text style={styles.primaryBtnText}>Sign In</Text>
+              <Text style={[styles.primaryBtnText, { color: theme.onAccent }]}>
+                Sign In
+              </Text>
             )}
           </Pressable>
         </View>
@@ -192,7 +195,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: Spacing.one,
   },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  primaryBtnText: { fontSize: 16, fontWeight: '600' },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: Spacing.two },
   footerText: { fontSize: 14 },
   footerLink: { fontSize: 14, fontWeight: '600' },

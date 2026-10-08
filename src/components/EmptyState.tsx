@@ -1,19 +1,19 @@
-import { Ionicons } from '@expo/vector-icons'
-import { StyleSheet, Text, View } from 'react-native'
-import { useTheme } from '@/hooks/use-theme'
 import { Spacing } from '@/constants/theme'
+import { useTheme } from '@/hooks/use-theme'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { StyleSheet, Text, View } from 'react-native'
 
 interface EmptyStateProps {
-  icon?: keyof typeof Ionicons.glyphMap
+  icon?: keyof typeof MaterialCommunityIcons.glyphMap
   title: string
   subtitle?: string
 }
 
-export function EmptyState({ icon = 'document-text-outline', title, subtitle }: EmptyStateProps) {
+export function EmptyState({ icon = 'file-document-outline', title, subtitle }: EmptyStateProps) {
   const theme = useTheme()
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Ionicons name={icon} size={48} color={theme.textSecondary} />
+      <MaterialCommunityIcons name={icon} size={48} color={theme.textSecondary} />
       <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
       {subtitle && (
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>

@@ -206,7 +206,7 @@ export function ReminderSheet({
               onPress={handleSave}
               disabled={saving}
             >
-              <Text style={[styles.btnText, { color: '#fff' }]}>Set</Text>
+              <Text style={[styles.btnText, { color: theme.onAccent }]}>Set</Text>
             </Pressable>
           </View>
         </View>

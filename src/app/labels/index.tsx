@@ -1,3 +1,14 @@
+import type { Label } from '@/api/labels'
+import { Radius, Shadow, Spacing } from '@/constants/theme'
+import {
+  useCreateLabel,
+  useDeleteLabel,
+  useLabels,
+  useUpdateLabel,
+} from '@/hooks/use-labels'
+import { useTheme } from '@/hooks/use-theme'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { Stack } from 'expo-router'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
@@ -9,18 +20,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Stack } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import type { Label } from '@/api/labels'
-import { Ionicons } from '@expo/vector-icons'
-import { useTheme } from '@/hooks/use-theme'
-import { Radius, Shadow, Spacing } from '@/constants/theme'
-import {
-  useCreateLabel,
-  useDeleteLabel,
-  useLabels,
-  useUpdateLabel,
-} from '@/hooks/use-labels'
 
 export default function LabelsScreen() {
   const theme = useTheme()
@@ -102,7 +102,7 @@ export default function LabelsScreen() {
             onPress={() => handleRename(item.id)}
             style={[styles.rowBtn, { backgroundColor: theme.accent }]}
           >
-            <Text style={[styles.rowBtnText, { color: '#fff', fontWeight: '600' }]}>Save</Text>
+            <Text style={[styles.rowBtnText, { color: theme.onAccent, fontWeight: '600' }]}>Save</Text>
           </Pressable>
           <Pressable
             onPress={() => setEditingId(null)}
@@ -116,7 +116,7 @@ export default function LabelsScreen() {
       ) : (
         <>
           <View style={styles.labelInfo}>
-            <Ionicons name="pricetag-outline" size={18} color={theme.text} style={{ marginRight: 8 }} />
+            <MaterialCommunityIcons name="tag" size={18} color={theme.text} style={{ marginRight: 8 }} />
             <Text style={[styles.labelName, { color: theme.text }]}>
               {item.name}
             </Text>
@@ -129,13 +129,13 @@ export default function LabelsScreen() {
               }}
               style={[styles.actionIconBtn, { backgroundColor: theme.backgroundElement }]}
             >
-              <Ionicons name="pencil-outline" size={16} color={theme.text} />
+              <MaterialCommunityIcons name="pencil-outline" size={16} color={theme.text} />
             </Pressable>
             <Pressable
               onPress={() => handleDelete(item.id, item.name)}
               style={[styles.actionIconBtn, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
             >
-              <Ionicons name="trash-outline" size={16} color="#EF4444" />
+              <MaterialCommunityIcons name="trash-can-outline" size={16} color="#EF4444" />
             </Pressable>
           </View>
         </>
@@ -179,9 +179,9 @@ export default function LabelsScreen() {
           disabled={createLabel.isPending}
         >
           {createLabel.isPending ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={theme.onAccent} />
           ) : (
-            <Text style={[styles.addBtnText, { color: '#fff' }]}>
+            <Text style={[styles.addBtnText, { color: theme.onAccent }]}>
               Add
             </Text>
           )}

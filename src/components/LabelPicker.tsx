@@ -1,4 +1,7 @@
-import { Ionicons } from '@expo/vector-icons'
+import { Spacing } from '@/constants/theme'
+import { useCreateLabel, useLabels } from '@/hooks/use-labels'
+import { useTheme } from '@/hooks/use-theme'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useState } from 'react'
 import {
   Pressable,
@@ -7,9 +10,6 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { useTheme } from '@/hooks/use-theme'
-import { Spacing } from '@/constants/theme'
-import { useCreateLabel, useLabels } from '@/hooks/use-labels'
 
 interface LabelPickerProps {
   selectedLabels: string[]
@@ -63,7 +63,7 @@ export function LabelPicker({ selectedLabels, onChange }: LabelPickerProps) {
             <Text style={[styles.badgeText, { color: theme.text }]}>
               {label}
             </Text>
-            <Ionicons name="close-outline" size={16} color={theme.textSecondary} />
+            <MaterialCommunityIcons name="close-outline" size={16} color={theme.textSecondary} />
           </Pressable>
         ))}
       </View>

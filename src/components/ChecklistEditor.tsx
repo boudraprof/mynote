@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons'
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
-import { useTheme } from '@/hooks/use-theme'
 import { Spacing } from '@/constants/theme'
+import { useTheme } from '@/hooks/use-theme'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 
 export interface ChecklistItem {
   text: string
@@ -47,7 +47,7 @@ export function ChecklistEditor({ items, onChange }: ChecklistEditorProps) {
             onPress={() => toggle(index)}
           >
             {item.checked && (
-              <Ionicons name="checkmark-outline" size={14} color={theme.text} />
+              <MaterialCommunityIcons name="check-outline" size={14} color={theme.text} />
             )}
           </Pressable>
           <TextInput
@@ -65,7 +65,7 @@ export function ChecklistEditor({ items, onChange }: ChecklistEditorProps) {
             placeholderTextColor={theme.textSecondary}
           />
           <Pressable onPress={() => remove(index)} style={styles.removeBtn}>
-            <Ionicons name="close-outline" size={20} color={theme.textSecondary} />
+            <MaterialCommunityIcons name="close-outline" size={20} color={theme.textSecondary} />
           </Pressable>
         </View>
       ))}
@@ -74,7 +74,7 @@ export function ChecklistEditor({ items, onChange }: ChecklistEditorProps) {
         onPress={add}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Ionicons name="add-outline" size={20} color={theme.textSecondary} />
+          <MaterialCommunityIcons name="plus" size={20} color={theme.textSecondary} />
           <Text style={[styles.addText, { color: theme.textSecondary }]}>
             Add item
           </Text>

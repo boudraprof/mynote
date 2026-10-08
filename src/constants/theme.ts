@@ -3,39 +3,43 @@ import { MD3DarkTheme, MD3LightTheme } from 'react-native-paper'
 import type { MD3Theme } from 'react-native-paper'
 
 /**
- * Color palette matching the web admin panel's Google Keep-like aesthetic.
+ * Color palette shared with the web app (app/globals.css).
  *
- * Light mode: clean white backgrounds, subtle gray borders.
- * Dark mode:  warm dark-brown tones matching the app design reference
- * (Screenshots/): #211C13 background, #2E291E cards.
+ * The web app uses a shadcn-style "neutral" theme defined in oklch; values
+ * below are the same colors converted to hex for React Native.
+ *
+ * Light mode: near-white backgrounds, gray borders, near-black primary.
+ * Dark mode:  #0A0A0A background, #171717 cards, near-white primary.
  */
 export const Colors = {
   light: {
-    text: '#202124',
+    text: '#171717',
     background: '#FFFFFF',
-    backgroundElement: '#F1F3F4',
-    backgroundSelected: '#E8EAED',
-    textSecondary: '#5F6368',
-    accent: '#1A73E8',
-    accentLight: '#E8F0FE',
+    backgroundElement: '#F5F5F5',
+    backgroundSelected: '#E5E5E5',
+    textSecondary: '#737373',
+    accent: '#171717',
+    accentLight: '#F5F5F5',
+    onAccent: '#FAFAFA',
     surface: '#FFFFFF',
-    border: '#DADCE0',
+    border: '#E5E5E5',
     success: '#10B981',
-    danger: '#EF4444',
+    danger: '#E7000B',
     warning: '#F59E0B',
   },
   dark: {
-    text: '#ECE6DA',
-    background: '#211C13',
-    backgroundElement: '#2A251A',
-    backgroundSelected: '#383225',
-    textSecondary: '#A79F8F',
-    accent: '#8AB4F8',
-    accentLight: '#322B1E',
-    surface: '#2E291E',
-    border: '#373022',
+    text: '#FAFAFA',
+    background: '#0A0A0A',
+    backgroundElement: '#262626',
+    backgroundSelected: '#3A3A3A',
+    textSecondary: '#A1A1A1',
+    accent: '#E5E5E5',
+    accentLight: '#262626',
+    onAccent: '#171717',
+    surface: '#171717',
+    border: 'rgba(255,255,255,0.10)',
     success: '#10B981',
-    danger: '#EF4444',
+    danger: '#FF6467',
     warning: '#F59E0B',
   },
 } as const

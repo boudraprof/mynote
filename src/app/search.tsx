@@ -1,3 +1,5 @@
+import { useDebounce } from '@/hooks/use-debounce'
+import { Stack, router } from 'expo-router'
 import { useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -7,16 +9,14 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Stack, router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useDebounce } from '@/hooks/use-debounce'
 
+import { EmptyState } from '@/components/EmptyState'
+import { NoteCard } from '@/components/NoteCard'
+import { Spacing } from '@/constants/theme'
 import { useSearch } from '@/hooks/use-search'
 import { useTheme } from '@/hooks/use-theme'
-import { NoteCard } from '@/components/NoteCard'
-import { EmptyState } from '@/components/EmptyState'
-import { Ionicons } from '@expo/vector-icons'
-import { Spacing } from '@/constants/theme'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 export default function SearchScreen() {
   const theme = useTheme()
@@ -39,7 +39,7 @@ export default function SearchScreen() {
       <View style={[styles.header, { paddingTop: insets.top + Spacing.three }]}>
         <View style={styles.searchRow}>
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back-outline" size={24} color={theme.textSecondary} />
+            <MaterialCommunityIcons name="arrow-left" size={24} color={theme.textSecondary} />
           </Pressable>
           <TextInput
             ref={inputRef}
@@ -66,13 +66,13 @@ export default function SearchScreen() {
         </View>
       ) : results.length === 0 && debouncedQuery ? (
         <EmptyState
-          icon="search-outline"
+          icon="magnify"
           title="No results found"
           subtitle="Try a different search term"
         />
       ) : !debouncedQuery ? (
         <EmptyState
-          icon="search-outline"
+          icon="magnify"
           title="Search your notes"
           subtitle="Type to search across all your notes"
         />

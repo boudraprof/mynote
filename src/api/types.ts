@@ -15,6 +15,8 @@ export interface ApiNote {
   updatedAt: string
   StatusName?: string
   reminderAt?: string | null
+  /** True when the note is shared with someone (list responses only). */
+  shared?: boolean
 }
 
 export interface ApiResponse<T> {

@@ -1,3 +1,6 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
+import * as ImagePicker from 'expo-image-picker'
+import { Stack } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -13,28 +16,25 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Stack } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import * as ImagePicker from 'expo-image-picker'
-import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 
-import type { ChecklistItem } from '@/components/ChecklistEditor'
-import { useTheme } from '@/hooks/use-theme'
-import { Radius, Spacing } from '@/constants/theme'
-import { LabelPicker } from '@/components/LabelPicker'
-import { ChecklistEditor } from '@/components/ChecklistEditor'
-import { PalettePicker } from '@/components/PalettePicker'
-import { DrawingEditor } from '@/components/DrawingEditor'
-import { ActionSheet } from '@/components/ActionSheet'
-import { Ionicons } from '@expo/vector-icons'
 import { uploadImage } from '@/api/upload'
-import { createLocalNote, updateLocalNote } from '@/lib/offline-notes'
+import { ActionSheet } from '@/components/ActionSheet'
+import type { ChecklistItem } from '@/components/ChecklistEditor'
+import { ChecklistEditor } from '@/components/ChecklistEditor'
+import { DrawingEditor } from '@/components/DrawingEditor'
+import { ImageAttachments } from '@/components/ImageAttachments'
+import { PalettePicker } from '@/components/PalettePicker'
+import { ReminderSheet } from '@/components/ReminderSheet'
+import { Radius, Spacing } from '@/constants/theme'
 import { useNetwork } from '@/hooks/use-network'
-import { useAuth } from '@/providers/auth-provider'
-import { syncPendingNotes } from '@/hooks/use-sync'
 import { useNoteHistory } from '@/hooks/use-note-history'
-import { HistoryModal } from '@/components/HistoryModal'
+import { syncPendingNotes } from '@/hooks/use-sync'
+import { useTheme } from '@/hooks/use-theme'
 import { useUndoStack } from '@/hooks/use-undo'
+import { createLocalNote, updateLocalNote } from '@/lib/offline-notes'
+import { useAuth } from '@/providers/auth-provider'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 const paletteColorValues: Record<string, string> = {
   coral: '#f4a460',
@@ -62,7 +62,7 @@ const backgroundImages: Record<string, ImageSourcePropType> = {
   grocery_dark_thumb_0615: require('../../../assets/backgrounds/grocery_dark_thumb_0615.png'),
 }
 
-type ActiveSheet = 'add' | 'theme' | 'history' | null
+type ActiveSheet = 'add' | 'theme' | 'history' | 'reminder' | null
 
 export default function CreateNoteScreen() {
   const theme = useTheme()
@@ -89,27 +89,26 @@ export default function CreateNoteScreen() {
   }, [history.saveVersion])
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [labels, setLabels] = useState<string[]>([])
+  const [labels] = useState<string[]>([])
   const [isChecklist, setIsChecklist] = useState(false)
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
   const [palette, setPalette] = useState<string | null>(null)
   const [image, setImage] = useState<string | null>(null)
+  const [isPinned, setIsPinned] = useState(false)
+  const [reminderAt, setReminderAt] = useState<string | null>(null)
+  const [isArchived, setIsArchived] = useState(false)
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null)
   const [drawingVisible, setDrawingVisible] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
     'idle',
   )
   // In-memory undo/redo stack for the content editor (works offline).
-  const { record: recordUndo, undo: undoContent, redo: redoContent, reset: resetUndo } =
-    useUndoStack('')
+  const {
+    record: recordUndo,
+    undo: undoContent,
+    redo: redoContent,
+  } = useUndoStack('')
 
-  const parseItems = (raw: string): ChecklistItem[] => {
-    try {
-      return JSON.parse(raw)
-    } catch {
-      return []
-    }
-  }
 
   // Shared payload builder for auto-save, undo/redo and history snapshots.
   const buildPayload = useCallback(
@@ -125,8 +124,24 @@ export default function CreateNoteScreen() {
           : undefined,
       palette: palette || null,
       image: image || null,
+      pinned: isPinned,
+      reminderAt,
+      // A reminder owns the note status (server behaviour); archiving only
+      // applies while there is no reminder.
+      statusName: isArchived && !reminderAt ? 'archived' : undefined,
     }),
-    [title, content, labels, isChecklist, checklistItems, palette, image],
+    [
+      title,
+      content,
+      labels,
+      isChecklist,
+      checklistItems,
+      palette,
+      image,
+      isPinned,
+      reminderAt,
+      isArchived,
+    ],
   )
 
   // Auto-save: debounce editor changes and persist 800ms after the user
@@ -139,6 +154,7 @@ export default function CreateNoteScreen() {
       labels.length > 0 ||
       palette ||
       image ||
+      reminderAt ||
       checklistItems.length > 0
     if (!hasContent) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset status when note is empty
@@ -182,6 +198,7 @@ export default function CreateNoteScreen() {
     checklistItems,
     palette,
     image,
+    reminderAt,
     buildPayload,
   ])
 
@@ -279,40 +296,6 @@ export default function CreateNoteScreen() {
     }
   }, [])
 
-  // Apply a version snapshot back onto the editor. The auto-save effect
-  // then persists it, so restored state also lands in the local DB.
-  const applySnapshot = useCallback((snapshot: Record<string, unknown>) => {
-    if ('title' in snapshot) setTitle((snapshot.title as string | null) ?? '')
-    if ('content' in snapshot) {
-      const plain = (snapshot.content as string | null) ?? ''
-      setContent(plain)
-      resetUndo(plain)
-    }
-    if ('labels' in snapshot) setLabels((snapshot.labels as string[]) ?? [])
-    if ('palette' in snapshot)
-      setPalette((snapshot.palette as string | null) ?? null)
-    if ('image' in snapshot)
-      setImage((snapshot.image as string | null) ?? null)
-    if ('checklist' in snapshot) setIsChecklist(Boolean(snapshot.checklist))
-    if ('checklistItems' in snapshot && snapshot.checklistItems != null) {
-      setIsChecklist(true)
-      setChecklistItems(parseItems(snapshot.checklistItems as string))
-    }
-  }, [resetUndo])
-
-  const handleRestoreVersion = useCallback(
-    async (versionId: string) => {
-      const snapshot = await history.restoreVersion(versionId)
-      if (!snapshot) {
-        Alert.alert('Error', 'Failed to restore version')
-        return
-      }
-      applySnapshot(snapshot)
-      setActiveSheet(null)
-    },
-    [history, applySnapshot],
-  )
-
   const handleUndo = useCallback(() => {
     const target = undoContent()
     if (target !== null) {
@@ -328,7 +311,12 @@ export default function CreateNoteScreen() {
     if (target !== null) setContent(target)
   }, [redoContent])
 
-  const bgName = palette ? palette.split('/').pop()?.replace(/\.svg$/, '') : null
+  const bgName = palette
+    ? palette
+        .split('/')
+        .pop()
+        ?.replace(/\.svg$/, '')
+    : null
   const isImageBg = bgName ? backgroundImages[bgName] !== undefined : false
   const paletteBg = palette && !isImageBg ? paletteColorValues[palette] : null
   const containerBg = paletteBg || theme.background
@@ -343,7 +331,6 @@ export default function CreateNoteScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       // keyboardVerticalOffset={insets.top}
     >
-
       <Stack.Screen
         options={{
           headerShown: true,
@@ -351,10 +338,47 @@ export default function CreateNoteScreen() {
           headerStyle: { backgroundColor: containerBg },
           headerTintColor: textColor,
           headerShadowVisible: false,
-
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setIsPinned((prev) => !prev)}
+                accessibilityLabel={isPinned ? 'Unpin note' : 'Pin note'}
+              >
+                <MaterialCommunityIcons
+                  name={isPinned ? 'pin' : 'pin-outline'}
+                  size={24}
+                  color={isPinned ? theme.accent : textColor}
+                />
+              </Pressable>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setActiveSheet('reminder')}
+                accessibilityLabel={
+                  reminderAt ? 'Change reminder' : 'Add reminder'
+                }
+              >
+                <MaterialCommunityIcons
+                  name={reminderAt ? 'bell-ring' : 'bell-ring-outline'}
+                  size={22}
+                  color={reminderAt ? theme.accent : textColor}
+                />
+              </Pressable>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setIsArchived((prev) => !prev)}
+                accessibilityLabel={isArchived ? 'Unarchive note' : 'Archive note'}
+              >
+                <MaterialCommunityIcons
+                  name={isArchived ? 'archive' : 'archive-outline'}
+                  size={22}
+                  color={isArchived ? theme.accent : textColor}
+                />
+              </Pressable>
+            </View>
+          ),
         }}
       />
-
       {bgSource && (
         <Image
           source={bgSource}
@@ -399,6 +423,10 @@ export default function CreateNoteScreen() {
             />
           )}
 
+          {image && (
+            <ImageAttachments image={image} onChange={setImage} />
+          )}
+
           {/*<LabelPicker selectedLabels={labels} onChange={setLabels} />*/}
         </ScrollView>
 
@@ -408,8 +436,8 @@ export default function CreateNoteScreen() {
             {saveStatus === 'saving' ? (
               <ActivityIndicator size="small" color={secondaryColor} />
             ) : (
-              <Ionicons
-                name="checkmark-circle-outline"
+              <MaterialCommunityIcons
+                name="check-circle-outline"
                 size={16}
                 color={theme.success}
               />
@@ -427,7 +455,7 @@ export default function CreateNoteScreen() {
             {
               backgroundColor: containerBg,
               borderTopColor: 'rgba(0,0,0,0.08)',
-               paddingBottom: insets.bottom + Spacing.two,
+              paddingBottom: insets.bottom + Spacing.two,
             },
           ]}
         >
@@ -437,9 +465,11 @@ export default function CreateNoteScreen() {
               styles.actionBarBtn,
               { opacity: pressed ? 0.6 : 1 },
             ]}
-            onPress={() => {setActiveSheet('add')}}
+            onPress={() => {
+              setActiveSheet('add')
+            }}
           >
-            <Ionicons name="add-circle-outline" size={22} color={textColor} />
+            <MaterialCommunityIcons name="plus-circle-outline" size={22} color={textColor} />
           </Pressable>
 
           {/* Theme / palette button */}
@@ -450,8 +480,8 @@ export default function CreateNoteScreen() {
             ]}
             onPress={() => setActiveSheet('theme')}
           >
-            <Ionicons
-              name="color-palette-outline"
+            <MaterialCommunityIcons
+              name="palette-outline"
               size={22}
               color={textColor}
             />
@@ -496,7 +526,7 @@ export default function CreateNoteScreen() {
                 { backgroundColor: theme.backgroundElement },
               ]}
             >
-              <Ionicons name="camera-outline" size={22} color={textColor} />
+              <MaterialCommunityIcons name="camera-outline" size={22} color={textColor} />
             </View>
             <Text style={[styles.sheetRowLabel, { color: textColor }]}>
               Take photo
@@ -510,7 +540,7 @@ export default function CreateNoteScreen() {
                 { backgroundColor: theme.backgroundElement },
               ]}
             >
-              <Ionicons name="image-outline" size={22} color={textColor} />
+              <MaterialCommunityIcons name="image-outline" size={22} color={textColor} />
             </View>
             <Text style={[styles.sheetRowLabel, { color: textColor }]}>
               Add image
@@ -530,7 +560,7 @@ export default function CreateNoteScreen() {
                 { backgroundColor: theme.backgroundElement },
               ]}
             >
-              <Ionicons name="brush-outline" size={22} color={textColor} />
+              <MaterialCommunityIcons name="brush-outline" size={22} color={textColor} />
             </View>
             <Text style={[styles.sheetRowLabel, { color: textColor }]}>
               Drawing
@@ -548,7 +578,7 @@ export default function CreateNoteScreen() {
                 },
               ]}
             >
-              <Ionicons
+              <MaterialCommunityIcons
                 name="checkbox-outline"
                 size={22}
                 color={isChecklist ? '#fff' : textColor}
@@ -579,14 +609,15 @@ export default function CreateNoteScreen() {
           />
         </View>
       </ActionSheet>
-
-      {/* ── Version history ────────────────────────────── */}
-      <HistoryModal
-        visible={activeSheet === 'history'}
+      {/* ── Reminder sheet ──────────────────────────────── */}
+      <ReminderSheet
+        visible={activeSheet === 'reminder'}
         onClose={() => setActiveSheet(null)}
-        isLoading={history.isLoading}
-        versions={history.versions}
-        onRestoreVersion={handleRestoreVersion}
+        currentReminder={reminderAt}
+        onSave={(iso) => {
+          setReminderAt(iso)
+          setActiveSheet(null)
+        }}
       />
 
       {/* ── Drawing editor ─────────────────────────────── */}

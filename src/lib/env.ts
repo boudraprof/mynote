@@ -1,5 +1,5 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.122.1:3000'
-const API_BASE_PATH = process.env.EXPO_PUBLIC_API_BASE_PATH ?? 'v1/api'
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.1.130:3000'
+const API_BASE_PATH = process.env.EXPO_PUBLIC_API_BASE_PATH ?? 'api/v1'
 
 export const config = {
   apiUrl: API_URL,

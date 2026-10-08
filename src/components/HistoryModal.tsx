@@ -1,3 +1,7 @@
+import { Radius, Spacing } from '@/constants/theme'
+import { useTheme } from '@/hooks/use-theme'
+import type { NoteVersion } from '@/lib/note-history'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import {
   ActivityIndicator,
   Alert,
@@ -8,10 +12,6 @@ import {
   Text,
   View,
 } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import { Radius, Spacing } from '@/constants/theme'
-import { useTheme } from '@/hooks/use-theme'
-import type { NoteVersion } from '@/lib/note-history'
 
 interface HistoryModalProps {
   visible: boolean
@@ -98,8 +98,8 @@ export function HistoryModal({
                       {v.title ? ` — ${v.title}` : ''}
                     </Text>
                   </View>
-                  <Ionicons
-                    name="refresh-outline"
+                  <MaterialCommunityIcons
+                    name="refresh"
                     size={18}
                     color={theme.textSecondary}
                   />

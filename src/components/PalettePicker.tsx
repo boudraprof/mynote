@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Radius, Shadow, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/use-theme'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 const COLORS = [
   { name: 'coral', value: '#f4a460' },
@@ -57,10 +57,10 @@ export function PalettePicker({ selected, onChange }: PalettePickerProps) {
               onPress={() => onChange(c.name === 'none' ? null : c.name)}
             >
               {c.value === null && (
-                <Ionicons name="close-outline" size={20} color={theme.textSecondary} />
+                <MaterialCommunityIcons name="close-outline" size={20} color={theme.textSecondary} />
               )}
               {isSelected && c.value !== null && (
-                <Ionicons name="checkmark-outline" size={16} color="#333" />
+                <MaterialCommunityIcons name="check-outline" size={16} color="#333" />
               )}
             </Pressable>
           )

@@ -9,6 +9,8 @@ interface AuthContextValue {
     email: string
     name: string
     image?: string | null
+    createdAt?: string | Date
+    updatedAt?: string | Date
   } | null
   isPending: boolean
   signOut: () => Promise<void>
@@ -29,6 +31,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: session.user.email,
         name: session.user.name,
         image: session.user.image,
+        createdAt: session.user.createdAt,
+        updatedAt: session.user.updatedAt,
       }
     : null
 
