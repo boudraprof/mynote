@@ -82,18 +82,18 @@ export const auth = betterAuth({
     encryptOAuthTokens: true,
     storeStateStrategy: "cookie",
   },
-  // rateLimit: {
-  //   enabled: true,
-  //   window: 10,
-  //   max: 100,
-  //   storage: 'database',
-  //   customRules: {
-  //     '/sign-in/email': { window: 60, max: 5 },
-  //     '/sign-up/email': { window: 60, max: 5 },
-  //     '/forget-password': { window: 60, max: 5 },
-  //     '/reset-password': { window: 60, max: 5 },
-  //   },
-  // },
+  rateLimit: {
+    enabled: true,
+    window: 10,
+    max: 100,
+    storage: 'database',
+    customRules: {
+      '/sign-in/email': { window: 60, max: 5 },
+      '/sign-up/email': { window: 60, max: 5 },
+      '/forget-password': { window: 60, max: 5 },
+      '/reset-password': { window: 60, max: 5 },
+    },
+  },
   advanced: {
     useSecureCookies: process.env.BETTER_AUTH_SECURE_COOKIES === "true",
     defaultCookieAttributes: {
