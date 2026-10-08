@@ -20,6 +20,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { Image as ExpoImage } from 'expo-image'
 import { Menu } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -28,6 +29,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { LoadingView } from '@/components/LoadingView'
 import { NoteCard } from '@/components/NoteCard'
 import { Radius, Shadow, Spacing } from '@/constants/theme'
+import { useImageSource } from '@/hooks/use-image-source'
 import {
   useCopyNote,
   useDeleteNote,
@@ -47,6 +49,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets()
   const { data: s, isPending } = useSession()
   const user = s?.user
+  const avatarSource = useImageSource(user?.image ?? '')
   const params = useLocalSearchParams<{ tab?: string; label?: string }>()
   const [activeTab, setActiveTab] = useState<string | undefined>(
     params.tab || undefined,
@@ -498,9 +501,16 @@ export default function HomeScreen() {
                 router.navigate({ pathname: "/profile" })
               }}>
                 <View style={[styles.avatar, { backgroundColor: theme.accent }]}>
-                  {user.image ? <Image src={user.image} width={36} height={26} /> : <Text style={[styles.avatarText, { color: theme.onAccent }]}>
-                    (user.name || user.email || 'U')[0].toUpperCase()</Text>}
-
+                  {avatarSource ? (
+                    <ExpoImage
+                      source={avatarSource}
+                      style={{ width: 36, height: 36, borderRadius: 18 }}
+                    />
+                  ) : (
+                    <Text style={[styles.avatarText, { color: theme.onAccent }]}>
+                      {(user?.name || user?.email || 'U')[0].toUpperCase()}
+                    </Text>
+                  )}
                 </View>
               </Pressable>
             </View>
