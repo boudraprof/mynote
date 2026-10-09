@@ -65,7 +65,7 @@ export function ChecklistEditor({ items, onChange }: ChecklistEditorProps) {
             placeholderTextColor={theme.textSecondary}
           />
           <Pressable onPress={() => remove(index)} style={styles.removeBtn}>
-            <MaterialCommunityIcons name="close-outline" size={20} color={theme.textSecondary} />
+            <MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} />
           </Pressable>
         </View>
       ))}

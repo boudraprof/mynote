@@ -63,7 +63,7 @@ export function LabelPicker({ selectedLabels, onChange }: LabelPickerProps) {
             <Text style={[styles.badgeText, { color: theme.text }]}>
               {label}
             </Text>
-            <MaterialCommunityIcons name="close-outline" size={16} color={theme.textSecondary} />
+            <MaterialCommunityIcons name="close" size={16} color={theme.textSecondary} />
           </Pressable>
         ))}
       </View>

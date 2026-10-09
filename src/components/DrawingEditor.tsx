@@ -125,7 +125,7 @@ export function DrawingEditor({ visible, onClose, onSave }: DrawingEditorProps) 
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={handleClose} style={styles.headerBtn}>
-            <MaterialCommunityIcons name="close-outline" size={24} color={theme.text} />
+            <MaterialCommunityIcons name="close" size={24} color={theme.text} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: theme.text }]}>Drawing</Text>
           <Pressable

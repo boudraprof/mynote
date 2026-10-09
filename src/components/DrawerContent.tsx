@@ -108,7 +108,7 @@ export function DrawerContent(_props: DrawerContentProps) {
               onPress={() => setIsEditingLabels(false)}
               style={styles.closeBtn}
             >
-              <MaterialCommunityIcons name="close-outline" size={20} color={theme.textSecondary} />
+              <MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} />
             </Pressable>
           )}
         </Pressable>

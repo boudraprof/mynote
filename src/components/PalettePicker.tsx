@@ -57,7 +57,7 @@ export function PalettePicker({ selected, onChange }: PalettePickerProps) {
               onPress={() => onChange(c.name === 'none' ? null : c.name)}
             >
               {c.value === null && (
-                <MaterialCommunityIcons name="close-outline" size={20} color={theme.textSecondary} />
+                <MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} />
               )}
               {isSelected && c.value !== null && (
                 <MaterialCommunityIcons name="check-outline" size={16} color="#333" />

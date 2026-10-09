@@ -130,7 +130,7 @@ export function NoteCard({
       {imageSource && (
         <ExpoImage
           source={imageSource}
-          style={styles.cardImage}
+          style={[styles.cardImage, {height: imageSource&& 300}]}
           contentFit="cover"
         />
       )}
@@ -257,7 +257,6 @@ const styles = StyleSheet.create({
   },
   cardImage: {
     width: '100%',
-    height: 120,
     borderRadius: Radius.md,
     marginBottom: Spacing.two,
   },

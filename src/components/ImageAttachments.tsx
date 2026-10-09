@@ -71,7 +71,7 @@ export function ImageAttachments({ image, onChange }: ImageAttachmentsProps) {
             style={[styles.removeBtn, { backgroundColor: theme.background }]}
             onPress={handleRemove}
           >
-            <MaterialCommunityIcons name="close-outline" size={18} color={theme.text} />
+            <MaterialCommunityIcons name="close" size={18} color={theme.text} />
           </Pressable>
         </View>
       ) : (

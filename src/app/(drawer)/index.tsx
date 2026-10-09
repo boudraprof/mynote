@@ -1,3 +1,4 @@
+import { Image as ExpoImage } from 'expo-image'
 import { router, useLocalSearchParams, useNavigation } from 'expo-router'
 import {
   useCallback,
@@ -20,7 +21,6 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Image as ExpoImage } from 'expo-image'
 import { Menu } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -28,6 +28,8 @@ import type { ApiNote } from '@/api/types'
 import { EmptyState } from '@/components/EmptyState'
 import { LoadingView } from '@/components/LoadingView'
 import { NoteCard } from '@/components/NoteCard'
+import { PaletteDialog } from '@/components/PaletteDialog'
+import { ReminderSheet } from '@/components/ReminderSheet'
 import { Radius, Shadow, Spacing } from '@/constants/theme'
 import { useImageSource } from '@/hooks/use-image-source'
 import {
@@ -40,7 +42,8 @@ import { pullServerNotes, syncPendingNotes, useSyncStatus } from '@/hooks/use-sy
 import { useTheme } from '@/hooks/use-theme'
 import api from '@/lib/api'
 import { useSession } from '@/lib/auth'
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
+import { exportNotesToShare } from '@/lib/export-import'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 
 
@@ -62,6 +65,14 @@ export default function HomeScreen() {
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'title'>('newest')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectionMenuOpen, setSelectionMenuOpen] = useState(false)
+  const [paletteNote, setPaletteNote] = useState<{
+    noteId: string
+    currentPalette: string | null
+  } | null>(null)
+  const [reminderNote, setReminderNote] = useState<{
+    noteId: string
+    currentReminder: string | null
+  } | null>(null)
   const selectionMode = selectedIds.length > 0
 
   useEffect(() => {
@@ -227,9 +238,22 @@ export default function HomeScreen() {
   }, [runForSelected, updateNote])
 
   const deleteForeverSelected = useCallback(() => {
-    void runForSelected(
-      (note) => deleteNote.mutateAsync(note.id),
-      'Failed to delete note',
+    Alert.alert(
+      'Delete forever',
+      'Are you sure you want to delete the selected notes permanently? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void runForSelected(
+              (note) => deleteNote.mutateAsync(note.id),
+              'Failed to delete note'
+            )
+          },
+        },
+      ]
     )
   }, [runForSelected, deleteNote])
 
@@ -239,6 +263,63 @@ export default function HomeScreen() {
     clearSelection()
     router.push(`/note/${note.id}`)
   }, [selectedNotes, clearSelection])
+
+  const shareSelected = useCallback(async () => {
+    try {
+      const shared = await exportNotesToShare(selectedNotes)
+      if (!shared) {
+        Alert.alert('Share', 'Sharing is not available on this device')
+      }
+    } catch {
+      Alert.alert('Share', 'Failed to share note')
+    } finally {
+      clearSelection()
+    }
+  }, [selectedNotes, clearSelection])
+
+  const reminderSelected = useCallback(() => {
+    if (selectedNotes.length !== 1) {
+      Alert.alert('Reminder', 'Select a single note to set a reminder')
+      return
+    }
+    const note = selectedNotes[0]
+    setReminderNote({ noteId: note.id, currentReminder: note.reminderAt ?? null })
+    clearSelection()
+  }, [selectedNotes, clearSelection])
+
+  const paletteSelected = useCallback(() => {
+    if (selectedNotes.length !== 1) {
+      Alert.alert('Palette', 'Select a single note to set a palette')
+      return
+    }
+    const note = selectedNotes[0]
+    setPaletteNote({ noteId: note.id, currentPalette: note.palette ?? null })
+    clearSelection()
+  }, [selectedNotes, clearSelection])
+
+  const saveReminder = useCallback(
+    async (reminderAt: string | null) => {
+      if (!reminderNote) return
+      try {
+        await updateNote.mutateAsync({ id: reminderNote.noteId, reminderAt })
+      } catch {
+        Alert.alert('Reminder', 'Failed to update reminder')
+      }
+    },
+    [updateNote, reminderNote],
+  )
+
+  const savePalette = useCallback(
+    async (palette: string | null) => {
+      if (!paletteNote) return
+      try {
+        await updateNote.mutateAsync({ id: paletteNote.noteId, palette })
+      } catch {
+        Alert.alert('Palette', 'Failed to update palette')
+      }
+    },
+    [updateNote, paletteNote],
+  )
 
   type ToolbarAction = {
     icon: ComponentProps<typeof MaterialCommunityIcons>['name']
@@ -259,13 +340,7 @@ export default function HomeScreen() {
         label: 'Restore',
         onPress: restoreSelected,
       },
-      { icon: 'content-copy', label: 'Copy', onPress: copySelected },
-      {
-        icon: 'trash-can-outline',
-        label: 'Delete forever',
-        color: theme.danger,
-        onPress: deleteForeverSelected,
-      },
+   
     ]
     : isArchiveView
       ? [
@@ -275,6 +350,17 @@ export default function HomeScreen() {
           onPress: restoreSelected,
         },
         { icon: 'content-copy', label: 'Copy', onPress: copySelected },
+        {
+          icon: 'palette-outline',
+          label: 'Palette',
+          onPress: paletteSelected,
+        },
+        {
+          icon: 'bell-ring-outline',
+          label: 'Reminder',
+          onPress: reminderSelected,
+        },
+
         {
           icon: 'trash-can-outline',
           label: 'Move to trash',
@@ -289,25 +375,46 @@ export default function HomeScreen() {
           onPress: pinSelected,
         },
         { icon: 'content-copy', label: 'Copy', onPress: copySelected },
-        { icon: 'archive-outline', label: 'Archive', onPress: archiveSelected },
+
         {
-          icon: 'trash-can-outline',
-          label: 'Move to trash',
-          color: theme.danger,
-          onPress: trashSelected,
+          icon: 'palette-outline',
+          label: 'Palette',
+          onPress: paletteSelected,
         },
+        {
+          icon: 'share-variant-outline',
+          label: 'Share',
+          onPress: shareSelected,
+        },
+        { icon: 'archive-outline', label: 'Archive', onPress: archiveSelected },
+
       ]
 
-  const menuItems = useMemo(() => {
+  const menuItems:ToolbarAction[]  = useMemo(() => {
     if (selectedNotes.length !== 1) return []
-    return [
+    return isTrashView  ? [{
+        icon: 'trash-can-outline',
+        label: 'Delete forever',
+        color: theme.danger,
+        onPress: deleteForeverSelected,
+      }] :  [
       {
-        icon: 'pencil-outline' as const,
+        icon: 'pencil-outline',
         label: 'Edit',
         onPress: editSelected,
       },
+      {
+        icon: 'bell-ring-outline',
+        label: 'Reminder',
+        onPress: reminderSelected,
+      },
+      {
+        icon: 'palette-outline',
+        label: 'Palette',
+        onPress: paletteSelected,
+      },
     ]
-  }, [selectedNotes, editSelected])
+  }, [selectedNotes, editSelected, reminderSelected, paletteSelected])
 
 
   if (isPending) {
@@ -376,6 +483,12 @@ export default function HomeScreen() {
 
   const items = renderListItems()
 
+
+  /***
+   * TODO: add tag button 
+   * TODO: add   
+   */
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Top Header */}
@@ -390,7 +503,7 @@ export default function HomeScreen() {
                 { opacity: pressed ? 0.6 : 1 },
               ]}
             >
-              <MaterialCommunityIcons name="close-outline" size={24} color={theme.text} />
+              <MaterialCommunityIcons name="close" size={24} color={theme.text} />
             </Pressable>
             <Text
               style={[styles.selectionCount, { color: theme.text }]}
@@ -542,7 +655,7 @@ export default function HomeScreen() {
               />
               {searchQuery !== '' && (
                 <Pressable onPress={() => setSearchQuery('')}>
-                  <MaterialCommunityIcons name="close-outline" size={20} color={theme.textSecondary} />
+                  <MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} />
                 </Pressable>
               )}
             </View>
@@ -723,6 +836,20 @@ export default function HomeScreen() {
 
         </Pressable>
       )}
+
+      <ReminderSheet
+        visible={reminderNote !== null}
+        currentReminder={reminderNote?.currentReminder ?? null}
+        onSave={saveReminder}
+        onClose={() => setReminderNote(null)}
+      />
+
+      <PaletteDialog
+        visible={paletteNote !== null}
+        currentPalette={paletteNote?.currentPalette ?? null}
+        onSave={savePalette}
+        onClose={() => setPaletteNote(null)}
+      />
     </View>
   )
 }

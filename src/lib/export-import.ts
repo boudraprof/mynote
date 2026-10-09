@@ -9,6 +9,7 @@
  */
 
 import { Paths, File } from 'expo-file-system'
+import type { ApiNote } from '@/api/types'
 import logger from './logger'
 
 // Lazy-loaded sharing module
@@ -48,6 +49,86 @@ interface ImportResult {
 }
 
 type ExportFormat = 'json' | 'markdown'
+
+/**
+ * Share one or more notes through the OS share sheet (expo-sharing) by
+ * writing them to a Markdown file in the cache directory.
+ *
+ * Each note keeps its title, content, checklist, labels and reminder. The
+ * image stays in the cloud, so it is not included.
+ */
+export async function exportNotesToShare(
+  notes: Pick<
+    ApiNote,
+    'title' | 'content' | 'checklist' | 'checklistItems' | 'labels' | 'reminderAt'
+  >[],
+): Promise<boolean> {
+  try {
+    const file = new File(
+      Paths.cache,
+      `note-share-${new Date().toISOString().split('T')[0]}.md`,
+    )
+    await file.write(notesAsMarkdown(notes))
+
+    const sharing = await loadSharing()
+    if (!sharing) {
+      logger.warn('expo-sharing not available', 'Share')
+      return false
+    }
+    const canShare = await sharing.isAvailableAsync()
+    if (!canShare) {
+      logger.warn('Sharing not available on this device', 'Share')
+      return false
+    }
+    await sharing.shareAsync(file.uri, {
+      mimeType: 'text/markdown',
+      dialogTitle: 'Share note',
+    })
+    return true
+  } catch (error) {
+    logger.error('Failed to share note', error, 'Share')
+    throw error
+  }
+}
+
+function notesAsMarkdown(
+  notes: Pick<
+    ApiNote,
+    'title' | 'content' | 'checklist' | 'checklistItems' | 'labels' | 'reminderAt'
+  >[],
+): string {
+  if (notes.length === 0) return ''
+  const blocks = notes.map((note) => {
+    const lines: string[] = [`# ${note.title?.trim() || 'Untitled'}`, '']
+    if (note.content?.trim()) {
+      lines.push(note.content.trim(), '')
+    }
+    if (note.checklist && note.checklistItems) {
+      try {
+        const items = JSON.parse(
+          note.checklistItems,
+        ) as { text: string; checked: boolean }[]
+        if (items.length > 0) {
+          lines.push('Checklist:', '')
+          for (const item of items) {
+            lines.push(`- [${item.checked ? 'x' : ' '}] ${item.text}`)
+          }
+          lines.push('')
+        }
+      } catch {
+        // Malformed checklist data — skip it rather than breaking the share.
+      }
+    }
+    if (note.labels.length > 0) {
+      lines.push(`Labels: ${note.labels.join(', ')}`, '')
+    }
+    if (note.reminderAt) {
+      lines.push(`Reminder: ${new Date(note.reminderAt).toLocaleString()}`, '')
+    }
+    return lines.join('\n')
+  })
+  return blocks.join('\n\n---\n\n').concat('\n')
+}
 
 /**
  * Export notes to file and share
