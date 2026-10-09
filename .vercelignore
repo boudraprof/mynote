@@ -1,0 +1,10 @@
+# Exclude the mobile app (separate Expo/React Native project) from Vercel builds
+/mobile-app
+
+# Local artifacts
+/.next
+/node_modules
+/test-results
+/playwright-report
+/blob-report
+/uploads
