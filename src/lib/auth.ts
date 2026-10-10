@@ -18,13 +18,11 @@ const client = createAuthClient({
 export const authClient = client
 
 export async function signInEmail(body: { email: string; password: string }) {
-  try {
-    const res = await client.signIn.email(body)
-    if (res.error) {
-      throw new BetterAuthError(res.error.message ?? 'Login failed')
-    }
-    return res.data
-  } catch {}
+  const res = await client.signIn.email(body)
+  if (res.error) {
+    throw new BetterAuthError(res.error.message ?? 'Login failed')
+  }
+  return res.data
 }
 
 export async function signUpEmail(body: {
@@ -32,15 +30,11 @@ export async function signUpEmail(body: {
   password: string
   name: string
 }) {
-  try {   
-    const res = await client.signUp.email(body)
-    if (res.error) {
-      throw new BetterAuthError(res.error.message ?? 'Signup failed')
-    }
-    return res.data
-  } catch {
-    
+  const res = await client.signUp.email(body)
+  if (res.error) {
+    throw new BetterAuthError(res.error.message ?? 'Signup failed')
   }
+  return res.data
 }
 
 export async function signOut() {

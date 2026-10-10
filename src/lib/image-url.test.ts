@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { toAbsoluteImageSrc, toProxiedImageSrc } from './image-url'
 
-const HOST = 'http://192.168.1.130:3000'
+const HOST = 'https://mynote-demo.vercel.app'
 
 describe('toProxiedImageSrc', () => {
   it('leaves proxy paths untouched', () => {

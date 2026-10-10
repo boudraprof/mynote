@@ -44,8 +44,9 @@ export default function SignupScreen() {
     setLoading(true)
     setError('')
     try {
-      await signUpEmail({ email, password, name })
-      router.replace('/')
+      const res = await signUpEmail({ email, password, name })
+      if (res) router.replace('/')
+      else setError('Signup failed')
     } catch (e: any) {
       setError(e?.message || 'Signup failed')
     } finally {

@@ -484,10 +484,6 @@ export default function HomeScreen() {
   const items = renderListItems()
 
 
-  /***
-   * TODO: add tag button 
-   * TODO: add   
-   */
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
