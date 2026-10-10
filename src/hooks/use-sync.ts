@@ -6,11 +6,13 @@ import { useNetwork } from '@/hooks/use-network'
 import { useAuth } from '@/providers/auth-provider'
 import {
   getPendingSyncOperations,
+  getLocalNoteById,
   mergeServerNotes,
   removeSyncOperation,
   markNoteSynced,
   rekeyLocalNote,
 } from '@/lib/offline-notes'
+import { syncReminderNotification } from '@/lib/notifications'
 import { retryDelayMs } from '@/lib/sync-retry'
 import { createNote, updateNote, deleteNote, getNotes } from '@/api/notes'
 
@@ -128,6 +130,17 @@ export async function syncPendingNotes() {
             if (res.id && res.id !== op.noteId) {
               await rekeyLocalNote(op.noteId, res.id)
               syncedNoteId = res.id
+              // A reminder may have been scheduled against the local id; move
+              // it to the server id so tapping the notification still opens
+              // the note.
+              const rekeyed = await getLocalNoteById(res.id)
+              if (rekeyed?.reminderAt) {
+                await syncReminderNotification(
+                  res.id,
+                  rekeyed.title,
+                  rekeyed.reminderAt,
+                )
+              }
             }
           } else if (op.operation === 'update') {
             await updateNote(data)

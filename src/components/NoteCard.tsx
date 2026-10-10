@@ -82,6 +82,25 @@ export function NoteCard({
     return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
   }
 
+  const formatReminder = (dateStr: string) => {
+    const d = new Date(dateStr)
+    const now = new Date()
+    const time = d.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    if (d.toDateString() === now.toDateString()) return `Today, ${time}`
+    const tomorrow = new Date(now)
+    tomorrow.setDate(now.getDate() + 1)
+    if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`
+    return d.toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
   const parseChecklistItems = (
     raw: string | null,
   ): { text: string; checked: boolean }[] => {
@@ -240,6 +259,19 @@ export function NoteCard({
         </View>
       )}
 
+      {note.reminderAt && (
+        <View style={styles.reminderRow}>
+          <MaterialCommunityIcons
+            name="bell-ring-outline"
+            size={12}
+            color={secondaryColor}
+          />
+          <Text style={[styles.reminderText, { color: secondaryColor }]}>
+            {formatReminder(note.reminderAt)}
+          </Text>
+        </View>
+      )}
+
       <Text style={[styles.date, { color: secondaryColor }]}>
         {formatDate(note.updatedAt)}
       </Text>
@@ -326,5 +358,12 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   labelText: { fontSize: 10, fontWeight: '600', letterSpacing: 0.3 },
+  reminderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: Spacing.two,
+  },
+  reminderText: { fontSize: 11, fontWeight: '600' },
   date: { fontSize: 11, marginTop: Spacing.two, opacity: 0.7 },
 })

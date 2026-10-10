@@ -33,6 +33,7 @@ import { syncPendingNotes } from '@/hooks/use-sync'
 import { useTheme } from '@/hooks/use-theme'
 import { useUndoStack } from '@/hooks/use-undo'
 import { createLocalNote, updateLocalNote } from '@/lib/offline-notes'
+import { syncReminderNotification } from '@/lib/notifications'
 import { useAuth } from '@/providers/auth-provider'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 
@@ -89,6 +90,7 @@ export default function CreateNoteScreen() {
   }, [history.saveVersion])
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [contentEpoch, setContentEpoch] = useState(0)
   const [labels] = useState<string[]>([])
   const [isChecklist, setIsChecklist] = useState(false)
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
@@ -201,6 +203,26 @@ export default function CreateNoteScreen() {
     reminderAt,
     buildPayload,
   ])
+
+  // Keep the OS notification in sync with the note's reminder. Runs once the
+  // note exists (it's auto-created on first content) and whenever the reminder
+  // changes, so a reminder set here still fires while the app is closed.
+  const lastReminderSyncRef = useRef('')
+  useEffect(() => {
+    const noteId = noteIdRef.current
+    if (!noteId) return
+    const key = `${noteId}:${reminderAt ?? ''}`
+    if (key === lastReminderSyncRef.current) return
+    lastReminderSyncRef.current = key
+    void syncReminderNotification(noteId, title, reminderAt).then((granted) => {
+      if (reminderAt && !granted) {
+        Alert.alert(
+          'Reminder saved',
+          'Notifications are disabled for this app. Enable them in your device settings to get reminded.',
+        )
+      }
+    })
+  }, [reminderAt, title, historyNoteId])
 
   // ── Image picking ──────────────────────────────────────────
   const pickFromGallery = useCallback(async () => {

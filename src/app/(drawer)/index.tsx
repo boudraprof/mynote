@@ -43,6 +43,10 @@ import { useTheme } from '@/hooks/use-theme'
 import api from '@/lib/api'
 import { useSession } from '@/lib/auth'
 import { exportNotesToShare } from '@/lib/export-import'
+import {
+  cancelReminder,
+  syncReminderNotification,
+} from '@/lib/notifications'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 
@@ -71,16 +75,19 @@ export default function HomeScreen() {
   } | null>(null)
   const [reminderNote, setReminderNote] = useState<{
     noteId: string
+    title: string | null
     currentReminder: string | null
   } | null>(null)
   const selectionMode = selectedIds.length > 0
 
   useEffect(() => {
     // Keep tab/label state in sync when the drawer navigates here with new
-    // params (e.g. tapping "Trash" sets ?tab=trash).
+    // params (e.g. tapping "Trash" sets ?tab=trash). Assign unconditionally so
+    // tapping "Notes" (empty tab) clears the active filter and returns to the
+    // notes list instead of leaving the previous view stuck.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional param sync
-    if (params.tab) setActiveTab(params.tab)
-    if (params.label) setSelectedLabel(params.label)
+    setActiveTab(params.tab || undefined)
+    setSelectedLabel(params.label || undefined)
     // Exit selection mode whenever the view changes.
     setSelectedIds([])
     setSelectionMenuOpen(false)
@@ -100,7 +107,7 @@ export default function HomeScreen() {
   const sync = useSyncStatus()
 
   const navigation = useNavigation()
-  const rawNotes = data?.data ?? []
+  const rawNotes = useMemo(() => data?.data ?? [], [data])
   const notesList = searchQuery
     ? rawNotes.filter(
       (n) =>
@@ -150,6 +157,8 @@ export default function HomeScreen() {
           onPress: async () => {
             try {
               await api.delete('/notes')
+              // The notes are gone for good — drop any pending reminders.
+              await Promise.all(rawNotes.map((note) => cancelReminder(note.id)))
               refetch()
             } catch {
               Alert.alert('Error', 'Failed to empty trash')
@@ -158,7 +167,7 @@ export default function HomeScreen() {
         },
       ],
     )
-  }, [refetch])
+  }, [refetch, rawNotes])
 
   const toggleSelect = useCallback((note: ApiNote) => {
     setSelectedIds((prev) =>
@@ -225,7 +234,10 @@ export default function HomeScreen() {
 
   const trashSelected = useCallback(() => {
     void runForSelected(
-      (note) => updateNote.mutateAsync({ id: note.id, statusName: 'trash' }),
+      async (note) => {
+        await updateNote.mutateAsync({ id: note.id, statusName: 'trash' })
+        await cancelReminder(note.id)
+      },
       'Failed to move note to trash',
     )
   }, [runForSelected, updateNote])
@@ -248,7 +260,10 @@ export default function HomeScreen() {
           style: 'destructive',
           onPress: () => {
             void runForSelected(
-              (note) => deleteNote.mutateAsync(note.id),
+              async (note) => {
+                await deleteNote.mutateAsync(note.id)
+                await cancelReminder(note.id)
+              },
               'Failed to delete note'
             )
           },
@@ -283,7 +298,11 @@ export default function HomeScreen() {
       return
     }
     const note = selectedNotes[0]
-    setReminderNote({ noteId: note.id, currentReminder: note.reminderAt ?? null })
+    setReminderNote({
+      noteId: note.id,
+      title: note.title,
+      currentReminder: note.reminderAt ?? null,
+    })
     clearSelection()
   }, [selectedNotes, clearSelection])
 
@@ -302,6 +321,18 @@ export default function HomeScreen() {
       if (!reminderNote) return
       try {
         await updateNote.mutateAsync({ id: reminderNote.noteId, reminderAt })
+        // Keep the OS notification in sync with the stored reminder.
+        const granted = await syncReminderNotification(
+          reminderNote.noteId,
+          reminderNote.title,
+          reminderAt,
+        )
+        if (reminderAt && !granted) {
+          Alert.alert(
+            'Reminder saved',
+            'Notifications are disabled for this app. Enable them in your device settings to get reminded.',
+          )
+        }
       } catch {
         Alert.alert('Reminder', 'Failed to update reminder')
       }
@@ -340,7 +371,7 @@ export default function HomeScreen() {
         label: 'Restore',
         onPress: restoreSelected,
       },
-   
+
     ]
     : isArchiveView
       ? [
@@ -390,14 +421,14 @@ export default function HomeScreen() {
 
       ]
 
-  const menuItems:ToolbarAction[]  = useMemo(() => {
+  const menuItems: ToolbarAction[] = useMemo(() => {
     if (selectedNotes.length !== 1) return []
-    return isTrashView  ? [{
-        icon: 'trash-can-outline',
-        label: 'Delete forever',
-        color: theme.danger,
-        onPress: deleteForeverSelected,
-      }] :  [
+    return isTrashView ? [{
+      icon: 'trash-can-outline',
+      label: 'Delete forever',
+      color: theme.danger,
+      onPress: deleteForeverSelected,
+    }] : [
       {
         icon: 'pencil-outline',
         label: 'Edit',
@@ -412,6 +443,12 @@ export default function HomeScreen() {
         icon: 'palette-outline',
         label: 'Palette',
         onPress: paletteSelected,
+      },
+      {
+        icon: 'trash-can-outline',
+        label: 'Move to trash',
+        color: theme.danger,
+        onPress: trashSelected,
       },
     ]
   }, [selectedNotes, editSelected, reminderSelected, paletteSelected])

@@ -85,6 +85,30 @@ export async function scheduleReminder(
   })
 }
 
+/**
+ * Bring the OS notification in line with a note's stored reminder: prompt for
+ * permission and schedule it when a reminder is set, or cancel any pending one
+ * when it is cleared. Returns `false` only when a reminder was requested but
+ * the user has notifications disabled, so callers can surface that.
+ */
+export async function syncReminderNotification(
+  noteId: string,
+  title: string | null | undefined,
+  reminderAt: string | null,
+): Promise<boolean> {
+  if (!reminderAt) {
+    await cancelReminder(noteId)
+    return true
+  }
+  // Nothing to warn about where notifications can't run at all (e.g. Expo Go
+  // on Android) — only report back when the user has actually denied them.
+  if (!notificationsAvailable) return true
+  const granted = await ensureReminderPermissions()
+  if (!granted) return false
+  await scheduleReminder(noteId, title, reminderAt)
+  return true
+}
+
 /** Cancel any scheduled notification for the note (cleared/deleted notes). */
 export async function cancelReminder(noteId: string): Promise<void> {
   if (!notificationsAvailable) return

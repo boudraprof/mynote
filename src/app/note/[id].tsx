@@ -26,6 +26,7 @@ import { HistoryModal } from "@/components/HistoryModal";
 import { ImageAttachments } from "@/components/ImageAttachments";
 import { LabelPicker } from "@/components/LabelPicker";
 import { PalettePicker } from "@/components/PalettePicker";
+import { ReminderSheet } from "@/components/ReminderSheet";
 import { backgroundImages, paletteColorValues } from "@/constants/paletteBg";
 import { Radius, Spacing } from "@/constants/theme";
 import { useNetwork } from "@/hooks/use-network";
@@ -35,11 +36,12 @@ import { syncPendingNotes } from "@/hooks/use-sync";
 import { useTheme } from "@/hooks/use-theme";
 import { useUndoStack } from "@/hooks/use-undo";
 import { htmlToPlainText } from "@/lib/html";
+import { syncReminderNotification } from "@/lib/notifications";
 import { updateLocalNote } from "@/lib/offline-notes";
 import { useAuth } from "@/providers/auth-provider";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-type ActiveSheet = "add" | "theme" | "history" | null;
+type ActiveSheet = "add" | "theme" | "history" | "reminder" | null;
 
 export default function NoteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -70,6 +72,7 @@ export default function NoteDetailScreen() {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [palette, setPalette] = useState<string | null>(null);
   const [image, setImage] = useState<string | null>(null);
+  const [reminderAt, setReminderAt] = useState<string | null>(null);
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [drawingVisible, setDrawingVisible] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
@@ -113,6 +116,7 @@ export default function NoteDetailScreen() {
       );
       setPalette(note.palette);
       setImage(note.image);
+      setReminderAt(note.reminderAt ?? null);
       // The freshly seeded state is by definition already saved, so the
       // auto-save effect below won't fire until the user changes something.
       // Field order must match buildPayload() so the keys compare equal.
@@ -125,6 +129,7 @@ export default function NoteDetailScreen() {
         checklistItems: note.checklistItems ?? null,
         palette: note.palette,
         image: note.image,
+        reminderAt: note.reminderAt ?? null,
       });
     }
   }, [note, resetUndo]);
@@ -149,8 +154,18 @@ export default function NoteDetailScreen() {
           : null,
       palette,
       image,
+      reminderAt,
     }),
-    [title, content, labels, isChecklist, checklistItems, palette, image],
+    [
+      title,
+      content,
+      labels,
+      isChecklist,
+      checklistItems,
+      palette,
+      image,
+      reminderAt,
+    ],
   );
 
   // Auto-save: debounce editor changes and persist 800ms after the user
@@ -304,6 +319,8 @@ export default function NoteDetailScreen() {
         setPalette((snapshot.palette as string | null) ?? null);
       if ("image" in snapshot)
         setImage((snapshot.image as string | null) ?? null);
+      if ("reminderAt" in snapshot)
+        setReminderAt((snapshot.reminderAt as string | null) ?? null);
       if ("checklist" in snapshot) setIsChecklist(Boolean(snapshot.checklist));
       if ("checklistItems" in snapshot && snapshot.checklistItems != null) {
         setIsChecklist(true);
@@ -340,6 +357,29 @@ export default function NoteDetailScreen() {
     const target = redoContent();
     if (target !== null) setContent(target);
   }, [redoContent]);
+
+  // Persist a reminder (or clear it) and keep the OS notification in sync. The
+  // auto-save effect writes `reminderAt` to the local DB; here we only handle
+  // the OS-side scheduling so a notification fires even if the app is closed.
+  const handleSaveReminder = useCallback(
+    async (value: string | null) => {
+      if (!id) return;
+      setReminderAt(value);
+      setActiveSheet(null);
+      try {
+        const granted = await syncReminderNotification(id, title, value);
+        if (value && !granted) {
+          Alert.alert(
+            "Reminder saved",
+            "Notifications are disabled for this app. Enable them in your device settings to get reminded.",
+          );
+        }
+      } catch {
+        Alert.alert("Error", "Failed to update reminder");
+      }
+    },
+    [id, title],
+  );
 
   // ── Loading / missing states ─────────────────────────
   if (isLoading && !note) {
@@ -407,11 +447,17 @@ export default function NoteDetailScreen() {
                   color={textColor}
                 />
               </Pressable>
-              <Pressable onPress={() => {}}>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setActiveSheet("reminder")}
+                accessibilityLabel={
+                  reminderAt ? "Change reminder" : "Add reminder"
+                }
+              >
                 <MaterialCommunityIcons
-                  name="bell-ring-outline"
+                  name={reminderAt ? "bell-ring" : "bell-ring-outline"}
                   size={22}
-                  color={textColor}
+                  color={reminderAt ? theme.accent : textColor}
                 />
               </Pressable>
               <Pressable onPress={() => {}}>
@@ -675,6 +721,14 @@ export default function NoteDetailScreen() {
         isLoading={history.isLoading}
         versions={history.versions}
         onRestoreVersion={handleRestoreVersion}
+      />
+
+      {/* ── Reminder sheet ─────────────────────────────── */}
+      <ReminderSheet
+        visible={activeSheet === "reminder"}
+        onClose={() => setActiveSheet(null)}
+        currentReminder={reminderAt}
+        onSave={handleSaveReminder}
       />
 
       {/* ── Drawing editor ─────────────────────────────── */}
