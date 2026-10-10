@@ -296,12 +296,12 @@ Here is a reference of the configuration options available in `.env`:
 | `BETTER_AUTH_SECRET` | **Yes** | — | Secret key used by Better Auth for signing and encryption (min. 32 chars). |
 | `BETTER_AUTH_BASE_URL` | **Yes** | `http://localhost:3000` | Base URL where your backend server is hosted. |
 | `BETTER_AUTH_BASE_PATH` | **Yes** | `v1/api` | API path for Better Auth endpoints. |
-| `VITE_BETTER_AUTH_BASE_URL` | **Yes** | `http://localhost:3000` | Client-accessible auth base URL. |
-| `VITE_BETTER_AUTH_BASE_PATH` | **Yes** | `v1/api` | Client-accessible auth base path. |
-| `APP_URL` / `VITE_APP_URL` | **Yes** | `http://localhost:3000` | Public URL of the frontend application. |
+| `NEXT_PUBLIC_BETTER_AUTH_BASE_URL` | **Yes** | `http://localhost:3000` | Client-accessible auth base URL. |
+| `NEXT_PUBLIC_BETTER_AUTH_BASE_PATH` | **Yes** | `v1/api` | Client-accessible auth base path. |
+| `APP_URL` / `NEXT_PUBLIC_APP_URL` | **Yes** | `http://localhost:3000` | Public URL of the frontend application. |
 | `GOOGLE_CLIENT_ID` | No | — | Google OAuth client ID for social login. |
 | `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth client secret. |
-| `VITE_GOOGLE_CLIENT_ID` | No | — | Client-side Google OAuth client ID flag. |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | No | — | Client-side Google OAuth client ID flag. |
 | `SMTP_HOST` | No | — | SMTP host for sending emails (logs to console in dev if omitted). |
 | `SMTP_PORT` | No | `587` | SMTP port (e.g. 587 or 465). |
 | `SMTP_USER` | No | — | SMTP username. |
