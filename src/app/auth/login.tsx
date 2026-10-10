@@ -19,6 +19,7 @@ import { TextInput } from 'react-native-paper'
 import { useTheme } from '@/hooks/use-theme'
 import { Radius, Shadow, Spacing } from '@/constants/theme'
 import { signInEmail } from '@/lib/auth'
+import { requireOnline } from '@/lib/network'
 
 
 export default function LoginScreen() {
@@ -38,8 +39,8 @@ export default function LoginScreen() {
     setLoading(true)
     setError('')
     try {
+      if(!__DEV__) await requireOnline()
       const res = await signInEmail({ email, password })
-      console.log(res)
       if (res) {
         router.replace('/')
       } else {

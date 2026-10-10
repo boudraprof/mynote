@@ -42,12 +42,16 @@ export function DrawerContent(_props: DrawerContentProps) {
   const [isEditingLabels, setIsEditingLabels] = useState(false)
   const [newLabelName, setNewLabelName] = useState('')
 
-  const handleNav = (path: string, tab?: string) => {
-    router.push({ pathname: path as any, params: tab ? { tab } : undefined } as any)
+  // Update the home screen's filter in place (rather than pushing a duplicate
+  // home screen). Passing an explicit — possibly empty — tab/label lets the
+  // home screen clear the active filter when "Notes" is tapped, so the user
+  // can always get back from Trash/Archive/Reminders to the notes list.
+  const handleNav = (_path: string, tab?: string) => {
+    router.setParams({ tab: tab ?? '', label: '' } as any)
   }
 
   const handleLabelClick = (labelName: string) => {
-    router.push({ pathname: '/', params: { label: labelName } } as any)
+    router.setParams({ tab: '', label: labelName } as any)
   }
 
   const handleAddLabel = () => {

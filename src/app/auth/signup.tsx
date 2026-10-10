@@ -17,6 +17,7 @@ import { TextInput } from 'react-native-paper'
 import { useTheme } from '@/hooks/use-theme'
 import { Radius, Shadow, Spacing } from '@/constants/theme'
 import { signUpEmail } from '@/lib/auth'
+import { requireOnline } from '@/lib/network'
 
 export default function SignupScreen() {
   const theme = useTheme()
@@ -44,6 +45,7 @@ export default function SignupScreen() {
     setLoading(true)
     setError('')
     try {
+      if(!__DEV__) await requireOnline()
       const res = await signUpEmail({ email, password, name })
       if (res) router.replace('/')
       else setError('Signup failed')
