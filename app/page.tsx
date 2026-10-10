@@ -385,13 +385,13 @@ export default function HomePage() {
             </div>
             
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 blur-3xl rounded-full" />
+              <div className="absolute inset-0 bg-linear-to-tr from-emerald-500/20 to-teal-500/20 blur-3xl rounded-full" />
               <div className="relative rounded-[2rem] border border-slate-200/80 bg-white/50 p-2 shadow-2xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/50 overflow-hidden">
                 <div className="absolute top-0 right-0 p-6 opacity-10">
                   <Sparkles className="w-32 h-32" />
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-950 rounded-[1.5rem] p-8 h-full border border-slate-200/50 dark:border-slate-800/50">
-                  <div className="h-40 w-full rounded-xl bg-gradient-to-r from-emerald-400/20 to-teal-400/20 flex items-center justify-center mb-8">
+                  <div className="h-40 w-full rounded-xl bg-linear-to-r from-emerald-400/10 to-teal-400/10 flex items-center justify-center mb-8">
                      <Users className="w-16 h-16 text-emerald-500 opacity-50" />
                   </div>
                   <h4 className="text-2xl font-semibold mb-2 text-slate-900 dark:text-white">Start collaborating today</h4>
