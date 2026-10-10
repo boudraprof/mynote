@@ -610,7 +610,7 @@ export default function NotesPage({
       <div
         id="note-creator"
         ref={noteCreatorRef}
-        className="relative z-10  max-w-xl mx-auto my-4 md:my-6"
+        className="relative z-10 -top-10 max-w-xl mx-auto my-4 md:my-6"
       >
         {isCreatingNote ? (
           <Card
@@ -667,6 +667,7 @@ export default function NotesPage({
               onClick={(e) => {
                 e.stopPropagation();
               }}
+              
             >
               <CardHeader>
                 <Input
