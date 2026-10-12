@@ -942,6 +942,10 @@ export default function HomeScreen() {
           visible={snackbar !== null}
           onDismiss={() => setSnackbar(null)}
           duration={5000}
+          // Sit above the floating action button. The FAB top sits
+          // `Spacing.four + 56` above the safe-area inset; Paper already adds
+          // the inset plus an 8px container margin, so this leaves an 8px gap.
+          wrapperStyle={{ bottom: Spacing.four + 56 }}
           action={
             snackbar?.onUndo
               ? {
