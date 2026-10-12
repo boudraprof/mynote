@@ -121,6 +121,14 @@ export function NoteCard({
 
   const bgSource = isImageBg && bgName ? backgroundImages[bgName] : null
 
+  // A reminder in the past means it already fired; flag it as overdue until the
+  // user clears it. Trashed notes have their reminder cancelled, so hide it.
+  const showReminder = !!note.reminderAt && note.StatusName !== 'trash'
+  const isOverdue = showReminder
+    ? new Date(note.reminderAt as string).getTime() < new Date().getTime()
+    : false
+  const reminderColor = isOverdue ? theme.danger : secondaryColor
+
   return (
     <Pressable
       style={({ pressed }) => [
@@ -259,15 +267,16 @@ export function NoteCard({
         </View>
       )}
 
-      {note.reminderAt && (
+      {showReminder && (
         <View style={styles.reminderRow}>
           <MaterialCommunityIcons
-            name="bell-ring-outline"
+            name={isOverdue ? 'bell-alert-outline' : 'bell-ring-outline'}
             size={12}
-            color={secondaryColor}
+            color={reminderColor}
           />
-          <Text style={[styles.reminderText, { color: secondaryColor }]}>
-            {formatReminder(note.reminderAt)}
+          <Text style={[styles.reminderText, { color: reminderColor }]}>
+            {isOverdue ? 'Overdue · ' : ''}
+            {formatReminder(note.reminderAt as string)}
           </Text>
         </View>
       )}

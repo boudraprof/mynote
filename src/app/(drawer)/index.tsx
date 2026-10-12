@@ -21,7 +21,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Menu } from 'react-native-paper'
+import { Menu, Portal, Snackbar } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import type { ApiNote } from '@/api/types'
@@ -77,6 +77,10 @@ export default function HomeScreen() {
     noteId: string
     title: string | null
     currentReminder: string | null
+  } | null>(null)
+  const [snackbar, setSnackbar] = useState<{
+    message: string
+    onUndo?: () => void
   } | null>(null)
   const selectionMode = selectedIds.length > 0
 
@@ -187,6 +191,10 @@ export default function HomeScreen() {
     setSelectedIds([note.id])
   }, [])
 
+  const showUndo = useCallback((message: string, onUndo?: () => void) => {
+    setSnackbar({ message, onUndo })
+  }, [])
+
   const runForSelected = useCallback(
     async (action: (note: ApiNote) => Promise<unknown>, errorMsg: string) => {
       try {
@@ -194,8 +202,10 @@ export default function HomeScreen() {
           await action(note)
         }
         clearSelection()
+        return true
       } catch {
         Alert.alert('Error', errorMsg)
+        return false
       }
     },
     [selectedNotes, clearSelection],
@@ -225,26 +235,69 @@ export default function HomeScreen() {
     )
   }, [runForSelected, copyNote])
 
-  const archiveSelected = useCallback(() => {
-    void runForSelected(
+  const archiveSelected = useCallback(async () => {
+    const notes = selectedNotes
+    const ok = await runForSelected(
       (note) => updateNote.mutateAsync({ id: note.id, statusName: 'archived' }),
       'Failed to archive note',
     )
-  }, [runForSelected, updateNote])
+    if (!ok) return
+    showUndo(
+      notes.length > 1 ? `${notes.length} notes archived` : 'Note archived',
+      () => {
+        void Promise.all(
+          notes.map((note) =>
+            updateNote.mutateAsync({
+              id: note.id,
+              statusName: note.StatusName ?? 'active',
+            }),
+          ),
+        )
+      },
+    )
+  }, [selectedNotes, runForSelected, updateNote, showUndo])
 
-  const trashSelected = useCallback(() => {
-    void runForSelected(
+  const trashSelected = useCallback(async () => {
+    const notes = selectedNotes
+    const ok = await runForSelected(
       async (note) => {
         await updateNote.mutateAsync({ id: note.id, statusName: 'trash' })
         await cancelReminder(note.id)
       },
       'Failed to move note to trash',
     )
-  }, [runForSelected, updateNote])
+    if (!ok) return
+    showUndo(
+      notes.length > 1
+        ? `${notes.length} notes moved to trash`
+        : 'Note moved to trash',
+      () => {
+        void Promise.all(
+          notes.map(async (note) => {
+            await updateNote.mutateAsync({
+              id: note.id,
+              statusName: note.StatusName ?? 'active',
+            })
+            // Trashing cancels the reminder, so bring it back on undo.
+            if (note.reminderAt) {
+              await syncReminderNotification(note.id, note.title, note.reminderAt)
+            }
+          }),
+        )
+      },
+    )
+  }, [selectedNotes, runForSelected, updateNote, showUndo])
 
   const restoreSelected = useCallback(() => {
     void runForSelected(
-      (note) => updateNote.mutateAsync({ id: note.id, statusName: 'active' }),
+      async (note) => {
+        await updateNote.mutateAsync({ id: note.id, statusName: 'active' })
+        // Trashing a note cancels its reminder; bring it back when the note is
+        // restored, unless the scheduled time has already passed.
+        if (note.reminderAt) {
+          await syncReminderNotification(note.id, note.title, note.reminderAt)
+        }
+      },
       'Failed to restore note',
     )
   }, [runForSelected, updateNote])
@@ -883,6 +936,28 @@ export default function HomeScreen() {
         onSave={savePalette}
         onClose={() => setPaletteNote(null)}
       />
+
+      <Portal>
+        <Snackbar
+          visible={snackbar !== null}
+          onDismiss={() => setSnackbar(null)}
+          duration={5000}
+          action={
+            snackbar?.onUndo
+              ? {
+                  label: 'Undo',
+                  onPress: () => {
+                    const undo = snackbar.onUndo
+                    setSnackbar(null)
+                    undo?.()
+                  },
+                }
+              : undefined
+          }
+        >
+          {snackbar?.message ?? ''}
+        </Snackbar>
+      </Portal>
     </View>
   )
 }

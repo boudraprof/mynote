@@ -12,8 +12,8 @@ const api: AxiosInstance = axios.create({
 })
 
 api.interceptors.request.use(async (req) => {
+  await requireOnline()
   const cookie = await authClient.getCookie()
-  if(!cookie) await requireOnline()
   if (cookie) {
     req.headers.set('Cookie', cookie)
   }

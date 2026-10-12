@@ -29,7 +29,7 @@ interface DrawerContentProps {
   descriptors?: any
 }
 
-export function DrawerContent(_props: DrawerContentProps) {
+export function DrawerContent({ navigation }: DrawerContentProps) {
   
   const theme = useTheme()
   const insets = useSafeAreaInsets()
@@ -48,10 +48,12 @@ export function DrawerContent(_props: DrawerContentProps) {
   // can always get back from Trash/Archive/Reminders to the notes list.
   const handleNav = (_path: string, tab?: string) => {
     router.setParams({ tab: tab ?? '', label: '' } as any)
+    navigation?.closeDrawer?.()
   }
 
   const handleLabelClick = (labelName: string) => {
     router.setParams({ tab: '', label: labelName } as any)
+    navigation?.closeDrawer?.()
   }
 
   const handleAddLabel = () => {
@@ -174,11 +176,15 @@ export function DrawerContent(_props: DrawerContentProps) {
 
       {/* Footer: user info + sign out */}
       <View style={[styles.footer, { borderTopColor: theme.border }]}>
-        <View style={[styles.avatar, { backgroundColor: theme.accent }]}>
-          <Text style={[styles.avatarText, { color: theme.onAccent }]}>
-            {(user?.name || user?.email || 'U')[0].toUpperCase()}
-          </Text>
-        </View>
+        {user?.image ? (
+          <Image source={{ uri: user.image }} style={styles.avatarImage} />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: theme.accent }]}>
+            <Text style={[styles.avatarText, { color: theme.onAccent }]}>
+              {(user?.name || user?.email || 'U')[0].toUpperCase()}
+            </Text>
+          </View>
+        )}
         <View style={styles.footerInfo}>
           <Text
             style={[styles.footerName, { color: theme.text }]}
@@ -197,6 +203,7 @@ export function DrawerContent(_props: DrawerContentProps) {
         </View>
         <Pressable
           onPress={() => {
+            navigation?.closeDrawer?.()
             signOut()
            router.navigate('/')
           }}
@@ -281,6 +288,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'transparent',
   },
   avatarText: { fontSize: 15, fontWeight: '600' },
   footerInfo: { flex: 1 },
