@@ -12,6 +12,7 @@
 # testing
 /coverage
 curl*
+demo-curl.txt
 # next.js
 /.next/
 /out/
