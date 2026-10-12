@@ -93,6 +93,7 @@ function ThemedRoot() {
                   name="labels/index"
                   options={{ presentation: 'modal' }}
                 />
+                <Stack.Screen name="note/labels" />
               </Stack>
             </DbInitializer>
           </AuthProvider>

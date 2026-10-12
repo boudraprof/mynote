@@ -369,6 +369,22 @@ export default function HomeScreen() {
     clearSelection()
   }, [selectedNotes, clearSelection])
 
+  const labelSelected = useCallback(() => {
+    const ids = selectedNotes.map((note) => note.id)
+    // For multiple notes, start from the labels they all share.
+    const common = selectedNotes.reduce<string[]>((acc, note, index) => {
+      const labels = note.labels ?? []
+      return index === 0
+        ? [...labels]
+        : acc.filter((label) => labels.includes(label))
+    }, [])
+    clearSelection()
+    router.push({
+      pathname: '/note/labels',
+      params: { ids: JSON.stringify(ids), labels: JSON.stringify(common) },
+    })
+  }, [selectedNotes, clearSelection])
+
   const saveReminder = useCallback(
     async (reminderAt: string | null) => {
       if (!reminderNote) return
@@ -440,6 +456,11 @@ export default function HomeScreen() {
           onPress: paletteSelected,
         },
         {
+          icon: 'tag-outline',
+          label: 'Label',
+          onPress: labelSelected,
+        },
+        {
           icon: 'bell-ring-outline',
           label: 'Reminder',
           onPress: reminderSelected,
@@ -464,6 +485,11 @@ export default function HomeScreen() {
           icon: 'palette-outline',
           label: 'Palette',
           onPress: paletteSelected,
+        },
+        {
+          icon: 'tag-outline',
+          label: 'Label',
+          onPress: labelSelected,
         },
         {
           icon: 'share-variant-outline',
