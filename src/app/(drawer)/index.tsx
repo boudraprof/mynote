@@ -21,7 +21,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Menu, Portal, Snackbar } from 'react-native-paper'
+import { IconButton, Menu, Portal, Snackbar } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import type { ApiNote } from '@/api/types'
@@ -325,13 +325,6 @@ export default function HomeScreen() {
     )
   }, [runForSelected, deleteNote])
 
-  const editSelected = useCallback(() => {
-    if (selectedNotes.length !== 1) return
-    const note = selectedNotes[0]
-    clearSelection()
-    router.push(`/note/${note.id}`)
-  }, [selectedNotes, clearSelection])
-
   const shareSelected = useCallback(async () => {
     try {
       const shared = await exportNotesToShare(selectedNotes)
@@ -432,6 +425,8 @@ export default function HomeScreen() {
   const isArchiveView = activeTab === 'archived'
   const allPinned =
     selectedNotes.length > 0 && selectedNotes.every((n) => n.pinned)
+  const disabled = (label: "Share" | "Copy" | "Reminder") =>
+    selectedNotes.length > 1 && ['Reminder', 'Copy', 'Share'].includes(label)
 
   const toolbarButtons: ToolbarAction[] = isTrashView
     ? [
@@ -501,18 +496,12 @@ export default function HomeScreen() {
       ]
 
   const menuItems: ToolbarAction[] = useMemo(() => {
-    if (selectedNotes.length !== 1) return []
     return isTrashView ? [{
       icon: 'trash-can-outline',
       label: 'Delete forever',
       color: theme.danger,
       onPress: deleteForeverSelected,
     }] : [
-      {
-        icon: 'pencil-outline',
-        label: 'Edit',
-        onPress: editSelected,
-      },
       {
         icon: 'bell-ring-outline',
         label: 'Reminder',
@@ -525,12 +514,12 @@ export default function HomeScreen() {
       },
       {
         icon: 'trash-can-outline',
-        label: 'Move to trash',
+        label: 'Trash',
         color: theme.danger,
         onPress: trashSelected,
       },
     ]
-  }, [selectedNotes, editSelected, reminderSelected, paletteSelected])
+  }, [selectedNotes, reminderSelected, paletteSelected])
 
 
   if (isPending) {
@@ -625,54 +614,53 @@ export default function HomeScreen() {
             </Text>
             <View style={styles.selectionActions}>
               {toolbarButtons.map((btn) => (
-                <Pressable
+                <IconButton
                   key={btn.label}
                   onPress={btn.onPress}
+                  disabled={disabled(btn.label as "Share" | "Copy" | "Reminder")}
                   hitSlop={6}
-                  style={({ pressed }) => [
-                    styles.selectionActionBtn,
-                    { opacity: pressed ? 0.6 : 1 },
-                  ]}
-                >
-                  <MaterialCommunityIcons name={btn.icon} size={20} color={theme.text} />
-                </Pressable>
+                  style={styles.selectionIconButton}
+                  icon={btn.icon}
+                  iconColor={btn.color ?? theme.text}
+                  size={20}
+                />
               ))}
-              {menuItems.length > 0 && (
-                <Menu
-                  visible={selectionMenuOpen}
-                  onDismiss={() => setSelectionMenuOpen(false)}
-                  anchor={
-                    <Pressable
-                      onPress={() => setSelectionMenuOpen((o) => !o)}
-                      hitSlop={6}
-                      style={({ pressed }) => [
-                        styles.selectionActionBtn,
-                        { opacity: pressed ? 0.6 : 1 },
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name="dots-vertical"
-                        size={20}
-                        color={theme.text}
-                      />
-                    </Pressable>
-                  }
-                >
-                  {menuItems.map((item) => (
-                    <Menu.Item
-                      key={item.label}
-                      leadingIcon={({ size, color }) => (
-                        <MaterialCommunityIcons name={item.icon} size={size} color={color} />
-                      )}
-                      title={item.label}
-                      onPress={() => {
-                        setSelectionMenuOpen(false)
-                        item.onPress()
-                      }}
+
+              <Menu
+                visible={selectionMenuOpen}
+                onDismiss={() => setSelectionMenuOpen(false)}
+                anchor={
+                  <Pressable
+                    onPress={() => setSelectionMenuOpen((o) => !o)}
+                    hitSlop={6}
+                    style={({ pressed }) => [
+                      styles.selectionActionBtn,
+                      { opacity: pressed ? 0.6 : 1 },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="dots-vertical"
+                      size={20}
+                      color={theme.text}
                     />
-                  ))}
-                </Menu>
-              )}
+                  </Pressable>
+                }
+              >
+                {menuItems.map((item) => (
+                  <Menu.Item
+                    key={item.label}
+                    leadingIcon={({ size, color }) => (
+                      <MaterialCommunityIcons name={item.icon} size={size} color={color} />
+                    )}
+                    title={item.label}
+                    disabled={disabled(item.label as "Share" | "Copy" | "Reminder")}
+                    onPress={() => {
+                      setSelectionMenuOpen(false)
+                      item.onPress()
+                    }}
+                  />
+                ))}
+              </Menu>
             </View>
           </View>
         ) : (
@@ -975,13 +963,13 @@ export default function HomeScreen() {
           action={
             snackbar?.onUndo
               ? {
-                  label: 'Undo',
-                  onPress: () => {
-                    const undo = snackbar.onUndo
-                    setSnackbar(null)
-                    undo?.()
-                  },
-                }
+                label: 'Undo',
+                onPress: () => {
+                  const undo = snackbar.onUndo
+                  setSnackbar(null)
+                  undo?.()
+                },
+              }
               : undefined
           }
         >
@@ -1038,10 +1026,17 @@ const styles = StyleSheet.create({
   selectionActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
   },
   selectionActionBtn: {
-    padding: Spacing.half,
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectionIconButton: {
+    margin: 0,
+    width: 26,
+    height: 26,
   },
   headerActions: {
     flexDirection: 'row',
