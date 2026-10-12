@@ -1,5 +1,5 @@
 # Exclude the mobile app (separate Expo/React Native project) from Vercel builds
-/mobile-app
+/mobile-app*
 
 # Local artifacts
 /.next
