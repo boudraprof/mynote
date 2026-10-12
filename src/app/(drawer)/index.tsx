@@ -21,7 +21,14 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { IconButton, Menu, Portal, Snackbar } from 'react-native-paper'
+import {
+  Button,
+  IconButton,
+  Menu,
+  Portal,
+  Snackbar,
+  Text as PaperText,
+} from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import type { ApiNote } from '@/api/types'
@@ -538,28 +545,25 @@ export default function HomeScreen() {
         <Text style={[styles.authSubtitle, { color: theme.textSecondary }]}>
           Sign in to access your notes
         </Text>
-        <Pressable
-          style={({ pressed }) => [
-            styles.authButton,
-            { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
-            Shadow.md,
-          ]}
+        <Button
+          mode="contained"
+          style={[styles.authButton, Shadow.md]}
+          buttonColor={theme.accent}
+          textColor={theme.onAccent}
+          labelStyle={styles.authButtonText}
           onPress={() => router.push('/auth/login')}
         >
-          <Text style={[styles.authButtonText, { color: theme.onAccent }]}>
-            Sign In
-          </Text>
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [
-            { opacity: pressed ? 0.6 : 1, marginTop: Spacing.four },
+          Sign In
+        </Button>
+        <PaperText
+          style={[
+            styles.authLink,
+            { color: theme.accent, marginTop: Spacing.four },
           ]}
           onPress={() => router.push('/auth/signup')}
         >
-          <Text style={[styles.authLink, { color: theme.accent }]}>
-            Create Account
-          </Text>
-        </Pressable>
+          Create Account
+        </PaperText>
       </View>
     )
   }
@@ -596,16 +600,14 @@ export default function HomeScreen() {
       <View style={[styles.header, { paddingTop: insets.top + Spacing.two }]}>
         {selectionMode ? (
           <View style={styles.selectionBar}>
-            <Pressable
+            <IconButton
               onPress={clearSelection}
               hitSlop={8}
-              style={({ pressed }) => [
-                styles.selectionActionBtn,
-                { opacity: pressed ? 0.6 : 1 },
-              ]}
-            >
-              <MaterialCommunityIcons name="close" size={24} color={theme.text} />
-            </Pressable>
+              icon="close"
+              iconColor={theme.text}
+              size={24}
+              style={styles.selectionIconButton}
+            />
             <Text
               style={[styles.selectionCount, { color: theme.text }]}
               numberOfLines={1}
@@ -630,20 +632,14 @@ export default function HomeScreen() {
                 visible={selectionMenuOpen}
                 onDismiss={() => setSelectionMenuOpen(false)}
                 anchor={
-                  <Pressable
+                  <IconButton
                     onPress={() => setSelectionMenuOpen((o) => !o)}
                     hitSlop={6}
-                    style={({ pressed }) => [
-                      styles.selectionActionBtn,
-                      { opacity: pressed ? 0.6 : 1 },
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name="dots-vertical"
-                      size={20}
-                      color={theme.text}
-                    />
-                  </Pressable>
+                    icon="dots-vertical"
+                    iconColor={theme.text}
+                    size={20}
+                    style={styles.selectionIconButton}
+                  />
                 }
               >
                 {menuItems.map((item) => (
@@ -666,21 +662,23 @@ export default function HomeScreen() {
         ) : (
           <>
             <View style={styles.headerRow}>
-              <Pressable onPress={() => (navigation as any).toggleDrawer()}>
-                <MaterialCommunityIcons name="menu" size={24} color={theme.text} />
-              </Pressable>
+              <IconButton
+                onPress={() => (navigation as any).toggleDrawer()}
+                icon="menu"
+                iconColor={theme.text}
+                size={24}
+                style={{ margin: 0 }}
+              />
               <View style={styles.headerActions}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.headerActionBtn,
-                    { opacity: pressed ? 0.6 : 1 },
-                  ]}
+                <IconButton
+                  icon={viewMode === 'list' ? 'view-grid-outline' : 'view-list-outline'}
+                  iconColor={theme.text}
+                  size={20}
+                  style={{ margin: 0 }}
                   onPress={() =>
                     setViewMode((prev) => (prev === 'list' ? 'grid' : 'list'))
                   }
-                >
-                  <MaterialCommunityIcons name={viewMode === 'list' ? 'view-grid-outline' : 'view-list-outline'} size={20} color={theme.text} />
-                </Pressable>
+                />
                 <Pressable
                   style={({ pressed }) => [
                     styles.headerActionBtn,
@@ -754,9 +752,13 @@ export default function HomeScreen() {
                 returnKeyType="search"
               />
               {searchQuery !== '' && (
-                <Pressable onPress={() => setSearchQuery('')}>
-                  <MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} />
-                </Pressable>
+                <IconButton
+                  onPress={() => setSearchQuery('')}
+                  icon="close"
+                  iconColor={theme.textSecondary}
+                  size={20}
+                  style={{ margin: 0 }}
+                />
               )}
             </View>
 
@@ -792,11 +794,12 @@ export default function HomeScreen() {
                       : `${sync.pending} change${sync.pending === 1 ? '' : 's'} waiting to sync`}
                 </Text>
                 {!sync.syncing && (
-                  <Pressable onPress={() => void syncPendingNotes()} hitSlop={8}>
-                    <Text style={[styles.syncBannerAction, { color: theme.accent }]}>
-                      Sync now
-                    </Text>
-                  </Pressable>
+                  <PaperText
+                    style={[styles.syncBannerAction, { color: theme.accent }]}
+                    onPress={() => void syncPendingNotes()}
+                  >
+                    Sync now
+                  </PaperText>
                 )}
               </View>
             )}
@@ -804,20 +807,16 @@ export default function HomeScreen() {
             {/* Empty Trash Button Row */}
             {activeTab === 'trash' && notesList.length > 0 && (
               <View style={styles.trashHeaderRow}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.emptyTrashBtn,
-                    {
-                      backgroundColor: theme.accentLight,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}
+                <Button
+                  mode="contained"
+                  style={styles.emptyTrashBtn}
+                  buttonColor={theme.accentLight}
+                  textColor={theme.accent}
+                  labelStyle={styles.emptyTrashText}
                   onPress={handleEmptyTrash}
                 >
-                  <Text style={[styles.emptyTrashText, { color: theme.accent }]}>
-                    Empty Trash Now
-                  </Text>
-                </Pressable>
+                  Empty Trash Now
+                </Button>
               </View>
             )}
           </>
@@ -920,21 +919,20 @@ export default function HomeScreen() {
 
       {/* Floating Action Button */}
       {!activeTab && !selectionMode && (
-        <Pressable
-          style={({ pressed }) => [
+        <IconButton
+          mode="contained"
+          icon="plus"
+          iconColor={theme.onAccent}
+          containerColor={theme.accent}
+          size={28}
+          style={[
             styles.fab,
-            {
-              backgroundColor: theme.accent,
-              opacity: pressed ? 0.85 : 1,
-              bottom: insets.bottom + Spacing.four,
-            },
+            { bottom: insets.bottom + Spacing.four },
             Shadow.md,
+            { margin: 0 },
           ]}
           onPress={() => router.push('/note/create')}
-        >
-          <MaterialCommunityIcons name="plus" size={28} color={theme.onAccent} />
-
-        </Pressable>
+        />
       )}
 
       <ReminderSheet

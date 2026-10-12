@@ -1,4 +1,3 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -15,6 +14,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { IconButton } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { uploadImage } from "@/api/upload";
@@ -439,30 +439,31 @@ export default function NoteDetailScreen() {
           headerShadowVisible: false,
           headerRight: () => (
             <View style={{ flexDirection: "row", gap: 12 }}>
-              <Pressable onPress={() => {}}>
-                {/* <MaterialCommunityIcons name="pin-outline" size={22} color={textColor} /> */}
-                <MaterialCommunityIcons
-                  name="pin"
-                  size={24}
-                  color={textColor}
-                />
-              </Pressable>
-              <Pressable
-                hitSlop={8}
+              <IconButton
+                onPress={() => {}}
+                icon="pin"
+                iconColor={textColor}
+                size={24}
+                style={{ margin: 0 }}
+              />
+              <IconButton
                 onPress={() => setActiveSheet("reminder")}
+                icon={reminderAt ? "bell-ring" : "bell-ring-outline"}
+                iconColor={reminderAt ? theme.accent : textColor}
+                size={22}
+                style={{ margin: 0 }}
+                hitSlop={8}
                 accessibilityLabel={
                   reminderAt ? "Change reminder" : "Add reminder"
                 }
-              >
-                <MaterialCommunityIcons
-                  name={reminderAt ? "bell-ring" : "bell-ring-outline"}
-                  size={22}
-                  color={reminderAt ? theme.accent : textColor}
-                />
-              </Pressable>
-              <Pressable onPress={() => {}}>
-                <MaterialCommunityIcons name="archive-outline" size={22} color={textColor} />
-              </Pressable>
+              />
+              <IconButton
+                onPress={() => {}}
+                icon="archive-outline"
+                iconColor={textColor}
+                size={22}
+                style={{ margin: 0 }}
+              />
             </View>
           ),
         }}
@@ -546,68 +547,51 @@ export default function NoteDetailScreen() {
           ]}
         >
           {/* Add content button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionBarBtn,
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
+          <IconButton
             onPress={() => {
               setActiveSheet("add");
             }}
-          >
-            <MaterialCommunityIcons name="plus-circle-outline" size={22} color={textColor} />
-          </Pressable>
+            icon="plus-circle-outline"
+            iconColor={textColor}
+            size={22}
+            style={{ margin: 0, flex: 1 }}
+          />
 
           {/* Theme / palette button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionBarBtn,
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
+          <IconButton
             onPress={() => setActiveSheet("theme")}
-          >
-            <MaterialCommunityIcons
-              name="palette-outline"
-              size={22}
-              color={textColor}
-            />
-          </Pressable>
+            icon="palette-outline"
+            iconColor={textColor}
+            size={22}
+            style={{ margin: 0, flex: 1 }}
+          />
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionBarBtn,
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
+          <IconButton
             onPress={handleUndo}
-          >
-            <MaterialIcons name="undo" size={22} color={textColor} />
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionBarBtn,
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
+            icon="undo"
+            iconColor={textColor}
+            size={22}
+            style={{ margin: 0, flex: 1 }}
+          />
+          <IconButton
             onPress={handleRedo}
-          >
-            <MaterialIcons name="redo" size={22} color={textColor} />
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionBarBtn,
-              {
-                opacity:
-                  history.versions.length === 0 ? 0.3 : pressed ? 0.6 : 1,
-              },
-            ]}
+            icon="redo"
+            iconColor={textColor}
+            size={22}
+            style={{ margin: 0, flex: 1 }}
+          />
+          <IconButton
             onPress={() => {
               if (history.versions.length > 0) {
                 setActiveSheet("history");
               }
             }}
+            icon="history"
+            iconColor={textColor}
+            size={22}
+            style={{ margin: 0, flex: 1, opacity: history.versions.length === 0 ? 0.3 : 1 }}
             disabled={history.versions.length === 0}
-          >
-            <MaterialIcons name="history" size={22} color={textColor} />
-          </Pressable>
+          />
         </View>
       </View>
 
@@ -768,14 +752,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.two - 10,
     paddingHorizontal: Spacing.four,
     gap: Spacing.one,
-  },
-  actionBarBtn: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing.one,
-    borderRadius: Radius.sm,
-    // gap: 2,
   },
   actionBarLabel: {
     fontSize: 11,

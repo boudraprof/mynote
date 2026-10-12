@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import {
-  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,7 +11,7 @@ import {
 } from 'react-native'
 import { Stack, router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { TextInput } from 'react-native-paper'
+import { Button, Text as PaperText, TextInput } from 'react-native-paper'
 
 
 import { useTheme } from '@/hooks/use-theme'
@@ -124,29 +122,28 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryBtn,
-              { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
-            ]}
-            onPress={handleLogin}
+          <Button
+            mode="contained"
+            buttonColor={theme.accent}
+            textColor={theme.onAccent}
+            loading={loading}
             disabled={loading}
+            onPress={handleLogin}
+            style={{ borderRadius: Radius.md, marginTop: Spacing.one }}
+            contentStyle={{ paddingVertical: 7 }}
           >
-            {loading ? (
-              <ActivityIndicator color={theme.onAccent} />
-            ) : (
-              <Text style={[styles.primaryBtnText, { color: theme.onAccent }]}>
-                Sign In
-              </Text>
-            )}
-          </Pressable>
+            Sign In
+          </Button>
         </View>
 
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: theme.textSecondary }]}>Don&apos;t have an account?</Text>
-          <Pressable onPress={() => router.replace('/auth/signup')}>
-            <Text style={[styles.footerLink, { color: theme.accent }]}> Create one</Text>
-          </Pressable>
+          <PaperText
+            onPress={() => router.replace('/auth/signup')}
+            style={[styles.footerLink, { color: theme.accent }]}
+          >
+            {' Create one'}
+          </PaperText>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

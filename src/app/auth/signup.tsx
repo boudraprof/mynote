@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import {
-  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,7 +10,7 @@ import {
 } from 'react-native'
 import { Stack, router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { TextInput } from 'react-native-paper'
+import { Button, Text as PaperText, TextInput } from 'react-native-paper'
 
 import { useTheme } from '@/hooks/use-theme'
 import { Radius, Shadow, Spacing } from '@/constants/theme'
@@ -150,29 +148,28 @@ export default function SignupScreen() {
             </View>
           </View>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryBtn,
-              { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
-            ]}
-            onPress={handleSignup}
+          <Button
+            mode="contained"
+            buttonColor={theme.accent}
+            textColor={theme.onAccent}
+            loading={loading}
             disabled={loading}
+            onPress={handleSignup}
+            style={{ borderRadius: Radius.md, marginTop: Spacing.one }}
+            contentStyle={{ paddingVertical: 7 }}
           >
-            {loading ? (
-              <ActivityIndicator color={theme.onAccent} />
-            ) : (
-              <Text style={[styles.primaryBtnText, { color: theme.onAccent }]}>
-                Create Account
-              </Text>
-            )}
-          </Pressable>
+            Create Account
+          </Button>
         </View>
 
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: theme.textSecondary }]}>Already have an account?</Text>
-          <Pressable onPress={() => router.replace('/auth/login')}>
-            <Text style={[styles.footerLink, { color: theme.accent }]}> Sign in</Text>
-          </Pressable>
+          <PaperText
+            onPress={() => router.replace('/auth/login')}
+            style={[styles.footerLink, { color: theme.accent }]}
+          >
+            {' Sign in'}
+          </PaperText>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

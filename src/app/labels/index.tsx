@@ -14,12 +14,12 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native'
+import { Button, IconButton } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 export default function LabelsScreen() {
@@ -98,20 +98,24 @@ export default function LabelsScreen() {
             autoFocus
             onSubmitEditing={() => handleRename(item.id)}
           />
-          <Pressable
+          <Button
             onPress={() => handleRename(item.id)}
-            style={[styles.rowBtn, { backgroundColor: theme.accent }]}
+            mode="contained"
+            buttonColor={theme.accent}
+            textColor={theme.onAccent}
+            style={styles.rowBtn}
           >
-            <Text style={[styles.rowBtnText, { color: theme.onAccent, fontWeight: '600' }]}>Save</Text>
-          </Pressable>
-          <Pressable
+            Save
+          </Button>
+          <Button
             onPress={() => setEditingId(null)}
-            style={[styles.rowBtn, { backgroundColor: theme.backgroundElement }]}
+            mode="contained"
+            buttonColor={theme.backgroundElement}
+            textColor={theme.textSecondary}
+            style={styles.rowBtn}
           >
-            <Text style={[styles.rowBtnText, { color: theme.textSecondary }]}>
-              Cancel
-            </Text>
-          </Pressable>
+            Cancel
+          </Button>
         </View>
       ) : (
         <>
@@ -122,21 +126,27 @@ export default function LabelsScreen() {
             </Text>
           </View>
           <View style={styles.actions}>
-            <Pressable
+            <IconButton
               onPress={() => {
                 setEditingId(item.id)
                 setEditName(item.name)
               }}
-              style={[styles.actionIconBtn, { backgroundColor: theme.backgroundElement }]}
-            >
-              <MaterialCommunityIcons name="pencil-outline" size={16} color={theme.text} />
-            </Pressable>
-            <Pressable
+              icon="pencil-outline"
+              iconColor={theme.text}
+              size={16}
+              mode="contained"
+              containerColor={theme.backgroundElement}
+              style={styles.actionIconBtn}
+            />
+            <IconButton
               onPress={() => handleDelete(item.id, item.name)}
-              style={[styles.actionIconBtn, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
-            >
-              <MaterialCommunityIcons name="trash-can-outline" size={16} color="#EF4444" />
-            </Pressable>
+              icon="trash-can-outline"
+              iconColor="#EF4444"
+              size={16}
+              mode="contained"
+              containerColor="rgba(239, 68, 68, 0.1)"
+              style={styles.actionIconBtn}
+            />
           </View>
         </>
       )}
@@ -169,23 +179,17 @@ export default function LabelsScreen() {
           onSubmitEditing={handleCreate}
           returnKeyType="done"
         />
-        <Pressable
-          style={({ pressed }) => [
-            styles.addBtn,
-            { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
-            Shadow.sm,
-          ]}
-          onPress={handleCreate}
+        <Button
+          mode="contained"
+          buttonColor={theme.accent}
+          textColor={theme.onAccent}
+          loading={createLabel.isPending}
           disabled={createLabel.isPending}
+          onPress={handleCreate}
+          style={[styles.addBtn, Shadow.sm]}
         >
-          {createLabel.isPending ? (
-            <ActivityIndicator size="small" color={theme.onAccent} />
-          ) : (
-            <Text style={[styles.addBtnText, { color: theme.onAccent }]}>
-              Add
-            </Text>
-          )}
-        </Pressable>
+          Add
+        </Button>
       </View>
 
       {isLoading ? (
@@ -254,6 +258,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     justifyContent: 'center',
     alignItems: 'center',
+    margin: 0,
   },
   rowBtn: {
     paddingHorizontal: Spacing.three,
@@ -261,7 +266,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     justifyContent: 'center',
   },
-  rowBtnText: { fontSize: 13 },
   editRow: {
     flexDirection: 'row',
     flex: 1,

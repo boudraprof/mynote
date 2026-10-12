@@ -4,11 +4,11 @@ import { useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native'
+import { IconButton } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { EmptyState } from '@/components/EmptyState'
@@ -16,7 +16,6 @@ import { NoteCard } from '@/components/NoteCard'
 import { Spacing } from '@/constants/theme'
 import { useSearch } from '@/hooks/use-search'
 import { useTheme } from '@/hooks/use-theme'
-import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 export default function SearchScreen() {
   const theme = useTheme()
@@ -38,9 +37,13 @@ export default function SearchScreen() {
       />
       <View style={[styles.header, { paddingTop: insets.top + Spacing.three }]}>
         <View style={styles.searchRow}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={theme.textSecondary} />
-          </Pressable>
+          <IconButton
+            onPress={() => router.back()}
+            icon="arrow-left"
+            iconColor={theme.textSecondary}
+            size={24}
+            style={styles.backBtn}
+          />
           <TextInput
             ref={inputRef}
             style={[
@@ -111,6 +114,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    margin: 0,
   },
   backText: { fontSize: 24 },
 

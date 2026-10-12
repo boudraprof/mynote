@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { IconButton, Text as PaperText } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Radius, Spacing } from '@/constants/theme'
@@ -92,9 +93,12 @@ export default function NoteLabelsScreen() {
             saving ? (
               <ActivityIndicator size="small" color={theme.accent} />
             ) : (
-              <Pressable onPress={handleSave} hitSlop={8}>
-                <Text style={[styles.saveText, { color: theme.accent }]}>Save</Text>
-              </Pressable>
+              <PaperText
+                onPress={handleSave}
+                style={[styles.saveText, { color: theme.accent }]}
+              >
+                Save
+              </PaperText>
             ),
         }}
       />
@@ -122,15 +126,15 @@ export default function NoteLabelsScreen() {
           onSubmitEditing={handleCreate}
           returnKeyType="done"
         />
-        <Pressable
+        <IconButton
           onPress={handleCreate}
-          style={({ pressed }) => [
-            styles.addButton,
-            { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
-          ]}
-        >
-          <MaterialCommunityIcons name="plus" size={22} color={theme.onAccent} />
-        </Pressable>
+          icon="plus"
+          iconColor={theme.onAccent}
+          size={22}
+          mode="contained"
+          containerColor={theme.accent}
+          style={styles.addButton}
+        />
       </View>
 
       {isLoading ? (
@@ -208,6 +212,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    margin: 0,
   },
   loading: { marginTop: Spacing.six },
   labelRow: {

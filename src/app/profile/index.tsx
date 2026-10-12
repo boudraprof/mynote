@@ -13,7 +13,7 @@ import {
   Text,
   View,
 } from 'react-native'
-import { TextInput } from 'react-native-paper'
+import { Button, IconButton, TextInput } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { getAllNotes } from '@/api/notes'
@@ -293,12 +293,13 @@ export default function ProfileScreen() {
           headerTintColor: theme.text,
           headerShadowVisible: false,
           headerLeft: () => (
-            <Pressable
+            <IconButton
               onPress={() => router.back()}
-              style={{ marginRight: 8, padding: 4 }}
-            >
-              <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
-            </Pressable>
+              icon="arrow-left"
+              iconColor={theme.text}
+              size={24}
+              style={{ margin: 0 }}
+            />
           ),
         }}
       />
@@ -490,64 +491,43 @@ export default function ProfileScreen() {
             {themeOptions.map((option) => {
               const selected = preference === option.value
               return (
-                <Pressable
+                <Button
                   key={option.value}
-                  style={({ pressed }) => [
-                    styles.themeOption,
-                    {
-                      backgroundColor: selected
-                        ? theme.accent
-                        : theme.backgroundElement,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}
+                  mode={selected ? 'contained' : 'outlined'}
+                  buttonColor={selected ? theme.accent : theme.backgroundElement}
+                  textColor={selected ? theme.onAccent : theme.text}
                   onPress={() => setPreference(option.value)}
+                  style={styles.themeOption}
                 >
-                  <Text
-                    style={[
-                      styles.themeOptionText,
-                      { color: selected ? theme.onAccent : theme.text },
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
+                  {option.label}
+                </Button>
               )
             })}
           </View>
         </View>
 
         <View style={styles.saveRow}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.resetBtn,
-              {
-                backgroundColor: theme.backgroundElement,
-                borderColor: theme.border,
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
+          <Button
+            mode="contained"
+            buttonColor={theme.backgroundElement}
+            textColor={theme.text}
             onPress={handleReset}
             disabled={saving}
+            style={[styles.resetBtn, { borderColor: theme.border }]}
           >
-            <Text style={[styles.saveBtnText, { color: theme.text }]}>Reset</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.saveBtn,
-              { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
-            ]}
+            Reset
+          </Button>
+          <Button
+            mode="contained"
+            buttonColor={theme.accent}
+            textColor={theme.onAccent}
             onPress={handleSave}
+            loading={saving}
             disabled={saving}
+            style={styles.saveBtn}
           >
-            {saving ? (
-              <ActivityIndicator color={theme.onAccent} />
-            ) : (
-              <Text style={[styles.saveBtnText, { color: theme.onAccent }]}>
-                Save Changes
-              </Text>
-            )}
-          </Pressable>
+            Save Changes
+          </Button>
         </View>
 
         {/* Export Card */}
@@ -556,25 +536,17 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 13, color: theme.textSecondary }}>
             Export all your notes as JSON.
           </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.deleteBtn,
-              {
-                backgroundColor: theme.backgroundElement,
-                opacity: pressed ? 0.8 : 1,
-              },
-            ]}
+          <Button
+            mode="contained"
+            buttonColor={theme.backgroundElement}
+            textColor={theme.accent}
             onPress={handleExport}
+            loading={exporting}
             disabled={exporting}
+            style={styles.deleteBtn}
           >
-            {exporting ? (
-              <ActivityIndicator color={theme.accent} />
-            ) : (
-              <Text style={[styles.deleteText, { color: theme.accent }]}>
-                Export Notes
-              </Text>
-            )}
-          </Pressable>
+            Export Notes
+          </Button>
         </View>
 
         {/* Danger Card */}
@@ -585,17 +557,15 @@ export default function ProfileScreen() {
           </Text>
 
           {!showDeleteConfirm ? (
-            <Pressable
-              style={({ pressed }) => [
-                styles.deleteBtn,
-                { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.8 : 1 },
-              ]}
+            <Button
+              mode="contained"
+              buttonColor={theme.backgroundElement}
+              textColor={theme.danger}
               onPress={() => setShowDeleteConfirm(true)}
+              style={styles.deleteBtn}
             >
-              <Text style={[styles.deleteText, { color: theme.danger }]}>
-                Delete Account...
-              </Text>
-            </Pressable>
+              Delete Account...
+            </Button>
           ) : (
             <View style={{ gap: Spacing.two }}>
               <Text style={[styles.label, { color: theme.textSecondary }]}>
@@ -613,32 +583,29 @@ export default function ProfileScreen() {
                 placeholderTextColor={theme.textSecondary}
               />
               <View style={{ flexDirection: 'row', gap: Spacing.two, marginTop: 10 }}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.dangerCancelBtn,
-                    { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
-                  ]}
+                <Button
+                  mode="contained"
+                  buttonColor={theme.backgroundElement}
+                  textColor={theme.text}
                   onPress={() => {
                     setShowDeleteConfirm(false)
                     setDeletePassword('')
                   }}
+                  style={styles.dangerCancelBtn}
                 >
-                  <Text style={{ color: theme.text, fontWeight: '600' }}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.dangerConfirmBtn,
-                    { backgroundColor: theme.danger, opacity: pressed ? 0.7 : 1 },
-                  ]}
+                  Cancel
+                </Button>
+                <Button
+                  mode="contained"
+                  buttonColor={theme.danger}
+                  textColor="#fff"
                   onPress={handleDeleteAccount}
+                  loading={deleting}
                   disabled={deleting}
+                  style={styles.dangerConfirmBtn}
                 >
-                  {deleting ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={{ color: '#fff', fontWeight: '600' }}>Delete Account</Text>
-                  )}
-                </Pressable>
+                  Delete Account
+                </Button>
               </View>
             </View>
           )}
