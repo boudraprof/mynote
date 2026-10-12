@@ -65,7 +65,7 @@ export function NoteCard({
   const effectiveBg =
     selected && !paletteBg && !isImageBg ? theme.accentLight : cardBg
   const borderColor = selected ? theme.accent : theme.border
-  const textColor = paletteBg || isImageBg ? '#1A1A1A' : theme.text
+  const textColor = paletteBg ? "black" : isImageBg ? 'white' : theme.text
   const secondaryColor = paletteBg || isImageBg ? '#444' : theme.textSecondary
 
   const formatDate = (dateStr: string) => {
